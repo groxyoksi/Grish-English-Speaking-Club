@@ -1,0 +1,87 @@
+{
+  "sessions": [
+    {
+      "id": "example1",
+      "date": "2025-11-08",
+      "notes": [
+        {
+          "title": "MEME /miːm/",
+          "pronunciation": "https://youglish.com/pronounce/meme/english",
+          "definition": "an image, video, or text that is humorous and copied/shared rapidly by internet users",
+          "examples": [
+            "That cat meme made me laugh so hard!",
+            "Did you see the latest meme about coffee?"
+          ]
+        },
+        {
+          "title": "TAKE A CHILL PILL!",
+          "pronunciation": "https://youglish.com/pronounce/chill%20pill/english",
+          "definition": "(slang) relax! calm down! don't stress or overreact",
+          "examples": [
+            "You're too nervous, take a chill pill!",
+            "It's just a game, take a chill pill."
+          ]
+        },
+        {
+          "title": "TO RUIN TEAM MORALE",
+          "pronunciation": "",
+          "definition": "to destroy the positive feelings or motivation in a group",
+          "examples": [
+            "Constant criticism can ruin team morale.",
+            "The manager's anger ruined everyone's morale."
+          ]
+        },
+        {
+          "title": "TO LIP-READ",
+          "pronunciation": "https://youglish.com/pronounce/lip-read/english",
+          "definition": "to understand what someone says by watching their lips",
+          "examples": [
+            "She can lip-read because she's hard of hearing.",
+            "I tried to lip-read what the actor said on stage."
+          ]
+        }
+      ],
+      "exercises": [
+        {
+          "type": "fill-blank",
+          "question": "Complete: You need to ___ before making important decisions.",
+          "answer": "take a chill pill"
+        },
+        {
+          "type": "multiple-choice",
+          "question": "What does 'to ruin team morale' mean?",
+          "options": [
+            "To improve team spirit",
+            "To destroy positive motivation in a group",
+            "To create a new team",
+            "To celebrate with the team"
+          ],
+          "correctIndex": 1
+        },
+        {
+          "type": "text",
+          "question": "Practice Exercise",
+          "instructions": "Write three sentences using the vocabulary from today's session. Share them in the comments section!"
+        }
+      ],
+      "links": [
+        {
+          "title": "YouGlish - Pronunciation Practice",
+          "url": "https://youglish.com",
+          "description": "Search for any word and hear how native speakers pronounce it in real videos"
+        },
+        {
+          "title": "BBC Learning English - 6 Minute Grammar",
+          "url": "https://www.bbc.co.uk/learningenglish/english/features/6-minute-grammar",
+          "description": "Short podcasts about English grammar topics"
+        },
+        {
+          "title": "Phrasal Verbs Dictionary",
+          "url": "https://www.thefreedictionary.com/English-Phrasal-Verbs.htm",
+          "description": "Comprehensive list of phrasal verbs with definitions and examples"
+        }
+      ]
+    }
+  ],
+  "comments": {}
+}
