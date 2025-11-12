@@ -2,6 +2,9 @@
 let sessions = [];
 let currentSessionId = null;
 
+// Admin password (change this to your own password)
+const ADMIN_PASSWORD = "gagagrigri25"; // Change this password!
+
 // Initialize the app
 document.addEventListener('DOMContentLoaded', () => {
     loadData();
@@ -29,7 +32,9 @@ function saveData() {
 
 // Setup event listeners
 function setupEventListeners() {
-    document.getElementById('adminBtn').addEventListener('click', openAdmin);
+    document.getElementById('adminBtn').addEventListener('click', () => {
+        showPasswordModal();
+    });
 }
 
 // Display all sessions on the main page
@@ -50,11 +55,19 @@ function displaySessions() {
     }
     
     container.innerHTML = sessions.map(session => `
-        <div class="session-box" onclick="openSession('${session.id}')">
+        <div class="session-box" data-session-id="${session.id}">
             <h2>${formatDate(session.date)}</h2>
             <p>${session.notes?.length || 0} notes • ${session.exercises?.length || 0} exercises • ${session.links?.length || 0} links</p>
         </div>
     `).join('');
+    
+    // Add click listeners to session boxes
+    document.querySelectorAll('.session-box').forEach(box => {
+        box.addEventListener('click', function() {
+            const sessionId = this.getAttribute('data-session-id');
+            openSession(sessionId);
+        });
+    });
 }
 
 // Format date for display
@@ -353,6 +366,55 @@ function closeSession() {
     currentSessionId = null;
 }
 
+// Show password modal
+function showPasswordModal() {
+    const modal = document.createElement('div');
+    modal.className = 'password-modal active';
+    modal.innerHTML = `
+        <div class="password-content">
+            <h3>🔒 Admin Access</h3>
+            <input type="password" id="adminPassword" placeholder="Enter password" />
+            <div class="password-btn-container">
+                <button class="password-submit" onclick="checkPassword()">Enter</button>
+                <button class="password-cancel" onclick="closePasswordModal()">Cancel</button>
+            </div>
+            <div id="passwordError" class="password-error"></div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    // Allow Enter key to submit
+    document.getElementById('adminPassword').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            checkPassword();
+        }
+    });
+    
+    // Focus password input
+    setTimeout(() => document.getElementById('adminPassword').focus(), 100);
+}
+
+// Close password modal
+function closePasswordModal() {
+    const modal = document.querySelector('.password-modal');
+    if (modal) modal.remove();
+}
+
+// Check password
+function checkPassword() {
+    const input = document.getElementById('adminPassword');
+    const error = document.getElementById('passwordError');
+    
+    if (input.value === ADMIN_PASSWORD) {
+        closePasswordModal();
+        openAdmin();
+    } else {
+        error.textContent = 'Incorrect password. Please try again.';
+        input.value = '';
+        input.focus();
+    }
+}
+
 // Open admin panel
 function openAdmin() {
     const adminPanel = createAdminPanel();
@@ -387,9 +449,21 @@ function createAdminPanel() {
                 </div>
                 
                 <div class="form-group">
-                    <label>Notes</label>
-                    <div id="notesContainer"></div>
-                    <button type="button" class="add-item-btn" onclick="addNoteFields()">+ Add Note</button>
+                    <label>Notes (Paste all notes at once)</label>
+                    <div class="parse-info">
+                        Paste your notes in this format:<br>
+                        <code>WORD /pronunciation/<br>
+                        🔊 Pronunciation: https://link.com<br>
+                        ====<br>
+                        definition<br>
+                        ====<br>
+                        Example 1<br>
+                        Example 2</code>
+                        <br><br>
+                        Separate each note with a blank line.
+                    </div>
+                    <textarea id="notesText" placeholder="Paste all your notes here..." style="min-height: 300px;"></textarea>
+                    <p class="helper-text">The parser will automatically extract title, pronunciation, definition, and examples</p>
                 </div>
                 
                 <div class="form-group">
@@ -434,24 +508,74 @@ function renderSessionsList() {
     `).join('');
 }
 
-// Add note fields
-let noteCounter = 0;
-function addNoteFields() {
-    const container = document.getElementById('notesContainer');
-    const noteId = `note-${noteCounter++}`;
+// Parse bulk notes text into structured notes array
+function parseNotes(notesText) {
+    if (!notesText || !notesText.trim()) return [];
     
-    const noteDiv = document.createElement('div');
-    noteDiv.className = 'item-preview';
-    noteDiv.id = noteId;
-    noteDiv.innerHTML = `
-        <input type="text" placeholder="Title (e.g., MEME /miːm/)" class="comment-input" style="margin-bottom: 10px;" data-field="title">
-        <input type="text" placeholder="Pronunciation URL (optional)" class="comment-input" style="margin-bottom: 10px;" data-field="pronunciation">
-        <input type="text" placeholder="Definition" class="comment-input" style="margin-bottom: 10px;" data-field="definition">
-        <textarea placeholder="Examples (one per line)" class="comment-input" style="margin-bottom: 10px;" data-field="examples"></textarea>
-        <button type="button" class="remove-item-btn" onclick="document.getElementById('${noteId}').remove()">Remove Note</button>
-    `;
+    const notes = [];
+    // Split by double line breaks to separate notes
+    const noteBlocks = notesText.split(/\n\s*\n/).filter(block => block.trim());
     
-    container.appendChild(noteDiv);
+    noteBlocks.forEach(block => {
+        const lines = block.split('\n').map(l => l.trim()).filter(l => l);
+        if (lines.length === 0) return;
+        
+        const note = {
+            title: '',
+            pronunciation: '',
+            definition: '',
+            examples: []
+        };
+        
+        let currentSection = 'title';
+        let definitionStarted = false;
+        
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            
+            // Check if it's the title line
+            if (i === 0) {
+                note.title = line;
+                continue;
+            }
+            
+            // Check for pronunciation link
+            if (line.includes('🔊 Pronunciation:') || line.includes('Pronunciation:')) {
+                const match = line.match(/https?:\/\/[^\s]+/);
+                if (match) {
+                    note.pronunciation = match[0];
+                }
+                continue;
+            }
+            
+            // Check for separator
+            if (line === '====' || line === '====') {
+                if (!definitionStarted) {
+                    currentSection = 'definition';
+                    definitionStarted = true;
+                } else {
+                    currentSection = 'examples';
+                }
+                continue;
+            }
+            
+            // Add content to appropriate section
+            if (currentSection === 'definition') {
+                note.definition += (note.definition ? ' ' : '') + line;
+            } else if (currentSection === 'examples' || (definitionStarted && currentSection !== 'definition')) {
+                note.examples.push(line);
+            } else if (currentSection === 'title' && i > 0) {
+                // If no separator found, treat remaining as examples
+                note.examples.push(line);
+            }
+        }
+        
+        if (note.title) {
+            notes.push(note);
+        }
+    });
+    
+    return notes;
 }
 
 // Add exercise fields
@@ -533,21 +657,9 @@ function saveNewSession(event) {
     
     const date = document.getElementById('sessionDate').value;
     
-    // Collect notes
-    const notes = [];
-    document.querySelectorAll('#notesContainer .item-preview').forEach(noteDiv => {
-        const title = noteDiv.querySelector('[data-field="title"]').value.trim();
-        const pronunciation = noteDiv.querySelector('[data-field="pronunciation"]').value.trim();
-        const definition = noteDiv.querySelector('[data-field="definition"]').value.trim();
-        const examples = noteDiv.querySelector('[data-field="examples"]').value
-            .split('\n')
-            .map(e => e.trim())
-            .filter(e => e);
-        
-        if (title || definition) {
-            notes.push({ title, pronunciation, definition, examples });
-        }
-    });
+    // Parse notes from bulk text
+    const notesText = document.getElementById('notesText').value;
+    const notes = parseNotes(notesText);
     
     // Collect exercises
     const exercises = [];
