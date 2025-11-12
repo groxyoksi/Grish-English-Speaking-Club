@@ -6,8 +6,8 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
-    background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
-    color: #fff;
+    background: #faf9f6;
+    color: #2c2c2c;
     line-height: 1.6;
     min-height: 100vh;
 }
@@ -24,19 +24,19 @@ header {
     align-items: center;
     margin-bottom: 60px;
     padding-bottom: 30px;
-    border-bottom: 1px solid rgba(255, 237, 0, 0.2);
+    border-bottom: 2px solid #e8d57e;
 }
 
 h1 {
-    color: #ffed00;
+    color: #1a1a1a;
     font-size: 2.5rem;
     font-weight: 700;
     letter-spacing: -0.5px;
 }
 
 .admin-btn {
-    background: linear-gradient(135deg, #ffed00 0%, #ffd700 100%);
-    color: #000;
+    background: #1a1a1a;
+    color: #f4e157;
     border: none;
     padding: 12px 28px;
     font-size: 0.95rem;
@@ -44,12 +44,13 @@ h1 {
     font-weight: 600;
     border-radius: 8px;
     transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(255, 237, 0, 0.3);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
 }
 
 .admin-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(255, 237, 0, 0.4);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    background: #2a2a2a;
 }
 
 /* Session boxes on main page */
@@ -60,9 +61,8 @@ h1 {
 }
 
 .session-box {
-    background: rgba(255, 255, 255, 0.03);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 237, 0, 0.2);
+    background: #ffffff;
+    border: 2px solid #e8d57e;
     border-radius: 16px;
     padding: 32px;
     cursor: pointer;
@@ -70,6 +70,7 @@ h1 {
     text-align: center;
     position: relative;
     overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .session-box::before {
@@ -78,8 +79,8 @@ h1 {
     top: 0;
     left: 0;
     right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, #ffed00, #ffd700);
+    height: 4px;
+    background: linear-gradient(90deg, #d4af37, #e8d57e);
     transform: scaleX(0);
     transition: transform 0.3s ease;
 }
@@ -90,20 +91,20 @@ h1 {
 
 .session-box:hover {
     transform: translateY(-8px);
-    border-color: rgba(255, 237, 0, 0.5);
-    background: rgba(255, 255, 255, 0.05);
-    box-shadow: 0 20px 40px rgba(255, 237, 0, 0.15);
+    border-color: #d4af37;
+    background: #fffef8;
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
 }
 
 .session-box h2 {
-    color: #ffed00;
+    color: #1a1a1a;
     font-size: 1.4rem;
     font-weight: 600;
     margin-bottom: 12px;
 }
 
 .session-box p {
-    color: #aaa;
+    color: #666;
     font-size: 0.9rem;
     font-weight: 400;
 }
@@ -118,9 +119,9 @@ h1 {
 }
 
 .back-btn {
-    background: rgba(255, 237, 0, 0.1);
-    color: #ffed00;
-    border: 1px solid rgba(255, 237, 0, 0.3);
+    background: #f5f5f5;
+    color: #1a1a1a;
+    border: 2px solid #e0e0e0;
     padding: 10px 24px;
     font-size: 0.95rem;
     cursor: pointer;
@@ -131,19 +132,19 @@ h1 {
 }
 
 .back-btn:hover {
-    background: rgba(255, 237, 0, 0.2);
-    border-color: rgba(255, 237, 0, 0.5);
+    background: #e8e8e8;
+    border-color: #d4af37;
     transform: translateX(-4px);
 }
 
 .session-header {
     margin-bottom: 50px;
     padding-bottom: 30px;
-    border-bottom: 1px solid rgba(255, 237, 0, 0.2);
+    border-bottom: 2px solid #e8d57e;
 }
 
 .session-header h2 {
-    color: #ffed00;
+    color: #1a1a1a;
     font-size: 2.2rem;
     font-weight: 600;
     margin-bottom: 10px;
@@ -157,26 +158,26 @@ h1 {
 }
 
 .content-box {
-    background: rgba(255, 255, 255, 0.03);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 237, 0, 0.2);
+    background: #ffffff;
+    border: 2px solid #e8d57e;
     border-radius: 16px;
     padding: 32px;
     transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .content-box:hover {
-    border-color: rgba(255, 237, 0, 0.4);
-    box-shadow: 0 10px 30px rgba(255, 237, 0, 0.1);
+    border-color: #d4af37;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
 }
 
 .content-box h3 {
-    color: #ffed00;
+    color: #1a1a1a;
     font-size: 1.4rem;
     font-weight: 600;
     margin-bottom: 24px;
     padding-bottom: 16px;
-    border-bottom: 1px solid rgba(255, 237, 0, 0.2);
+    border-bottom: 2px solid #e8d57e;
 }
 
 .content-box-content {
@@ -187,14 +188,16 @@ h1 {
 .note-item {
     margin-bottom: 28px;
     padding: 20px;
-    background: rgba(255, 237, 0, 0.03);
+    background: #fffef8;
     border-radius: 12px;
-    border-left: 3px solid #ffed00;
+    border-left: 4px solid #d4af37;
     transition: all 0.3s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .note-item:hover {
-    background: rgba(255, 237, 0, 0.05);
+    background: #fffcf0;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
 .note-item:last-child {
@@ -202,39 +205,39 @@ h1 {
 }
 
 .note-title {
-    color: #ffed00;
+    color: #1a1a1a;
     font-size: 1.2rem;
     font-weight: 600;
     margin-bottom: 12px;
 }
 
 .note-pronunciation {
-    color: #ffed00;
+    color: #8b7355;
     margin-bottom: 12px;
     font-size: 0.9rem;
 }
 
 .note-pronunciation a {
-    color: #ffed00;
+    color: #8b7355;
     text-decoration: none;
-    border-bottom: 1px dashed #ffed00;
+    border-bottom: 1px dashed #d4af37;
     transition: all 0.2s ease;
 }
 
 .note-pronunciation a:hover {
     border-bottom-style: solid;
-    opacity: 0.8;
+    color: #6b5335;
 }
 
 .note-definition {
-    color: #bbb;
+    color: #555;
     font-style: italic;
     margin-bottom: 12px;
     line-height: 1.6;
 }
 
 .note-example {
-    color: #ddd;
+    color: #2c2c2c;
     margin-left: 20px;
     margin-bottom: 8px;
     position: relative;
@@ -245,20 +248,21 @@ h1 {
     content: '→';
     position: absolute;
     left: 0;
-    color: #ffed00;
+    color: #d4af37;
 }
 
 /* Exercises */
 .exercise-item {
     margin-bottom: 28px;
     padding: 24px;
-    background: rgba(255, 237, 0, 0.03);
+    background: #fffef8;
     border-radius: 12px;
-    border-left: 3px solid #ffed00;
+    border-left: 4px solid #d4af37;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .exercise-question {
-    color: #fff;
+    color: #1a1a1a;
     margin-bottom: 18px;
     font-size: 1.05rem;
     font-weight: 500;
@@ -267,10 +271,10 @@ h1 {
 .exercise-input {
     width: 100%;
     padding: 14px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 237, 0, 0.3);
+    background: #ffffff;
+    border: 2px solid #e0e0e0;
     border-radius: 8px;
-    color: #fff;
+    color: #2c2c2c;
     font-size: 1rem;
     margin-bottom: 12px;
     transition: all 0.3s ease;
@@ -278,9 +282,9 @@ h1 {
 
 .exercise-input:focus {
     outline: none;
-    background: rgba(255, 255, 255, 0.08);
-    border-color: #ffed00;
-    box-shadow: 0 0 0 3px rgba(255, 237, 0, 0.1);
+    background: #fffef8;
+    border-color: #d4af37;
+    box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
 }
 
 .exercise-options {
@@ -291,38 +295,38 @@ h1 {
     display: block;
     padding: 14px;
     margin-bottom: 10px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 237, 0, 0.2);
+    background: #ffffff;
+    border: 2px solid #e0e0e0;
     border-radius: 8px;
-    color: #fff;
+    color: #2c2c2c;
     cursor: pointer;
     transition: all 0.3s ease;
 }
 
 .exercise-option:hover {
-    border-color: #ffed00;
-    background: rgba(255, 255, 255, 0.08);
+    border-color: #d4af37;
+    background: #fffef8;
     transform: translateX(4px);
 }
 
 .exercise-option.selected {
-    border-color: #ffed00;
-    background: rgba(255, 237, 0, 0.1);
+    border-color: #d4af37;
+    background: #fffcf0;
 }
 
 .exercise-option.correct {
-    border-color: #00ff00;
-    background: rgba(0, 255, 0, 0.1);
+    border-color: #4caf50;
+    background: #f1f8f4;
 }
 
 .exercise-option.incorrect {
-    border-color: #ff6b6b;
-    background: rgba(255, 107, 107, 0.1);
+    border-color: #e57373;
+    background: #fef5f5;
 }
 
 .check-btn, .submit-exercise-btn {
-    background: linear-gradient(135deg, #ffed00 0%, #ffd700 100%);
-    color: #000;
+    background: #1a1a1a;
+    color: #f4e157;
     border: none;
     padding: 12px 24px;
     font-size: 0.95rem;
@@ -335,7 +339,8 @@ h1 {
 
 .check-btn:hover, .submit-exercise-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(255, 237, 0, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    background: #2a2a2a;
 }
 
 .exercise-feedback {
@@ -346,27 +351,31 @@ h1 {
 }
 
 .exercise-feedback.correct {
-    color: #00ff00;
-    background: rgba(0, 255, 0, 0.1);
+    color: #2e7d32;
+    background: #f1f8f4;
+    border: 2px solid #4caf50;
 }
 
 .exercise-feedback.incorrect {
-    color: #ff6b6b;
-    background: rgba(255, 107, 107, 0.1);
+    color: #c62828;
+    background: #fef5f5;
+    border: 2px solid #e57373;
 }
 
 /* Links */
 .link-item {
     margin-bottom: 20px;
     padding: 16px;
-    background: rgba(255, 237, 0, 0.03);
+    background: #fffef8;
     border-radius: 12px;
     transition: all 0.3s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .link-item:hover {
-    background: rgba(255, 237, 0, 0.05);
+    background: #fffcf0;
     transform: translateX(4px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
 .link-item:last-child {
@@ -374,7 +383,7 @@ h1 {
 }
 
 .link-item a {
-    color: #ffed00;
+    color: #8b7355;
     font-size: 1.05rem;
     text-decoration: none;
     font-weight: 600;
@@ -384,11 +393,11 @@ h1 {
 }
 
 .link-item a:hover {
-    opacity: 0.8;
+    color: #6b5335;
 }
 
 .link-description {
-    color: #aaa;
+    color: #666;
     font-size: 0.9rem;
     line-height: 1.5;
 }
@@ -397,11 +406,11 @@ h1 {
 .comments-section {
     margin-top: 30px;
     padding-top: 24px;
-    border-top: 1px solid rgba(255, 237, 0, 0.2);
+    border-top: 2px solid #e8d57e;
 }
 
 .comments-section h4 {
-    color: #ffed00;
+    color: #1a1a1a;
     margin-bottom: 20px;
     font-size: 1.1rem;
     font-weight: 600;
@@ -414,10 +423,10 @@ h1 {
 .comment-input {
     width: 100%;
     padding: 14px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 237, 0, 0.3);
+    background: #ffffff;
+    border: 2px solid #e0e0e0;
     border-radius: 8px;
-    color: #fff;
+    color: #2c2c2c;
     font-size: 1rem;
     margin-bottom: 12px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
@@ -426,9 +435,9 @@ h1 {
 
 .comment-input:focus {
     outline: none;
-    background: rgba(255, 255, 255, 0.08);
-    border-color: #ffed00;
-    box-shadow: 0 0 0 3px rgba(255, 237, 0, 0.1);
+    background: #fffef8;
+    border-color: #d4af37;
+    box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
 }
 
 .comment-textarea {
@@ -437,8 +446,8 @@ h1 {
 }
 
 .submit-comment-btn {
-    background: linear-gradient(135deg, #ffed00 0%, #ffd700 100%);
-    color: #000;
+    background: #1a1a1a;
+    color: #f4e157;
     border: none;
     padding: 12px 24px;
     font-size: 0.95rem;
@@ -450,7 +459,8 @@ h1 {
 
 .submit-comment-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(255, 237, 0, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    background: #2a2a2a;
 }
 
 .comments-list {
@@ -458,33 +468,35 @@ h1 {
 }
 
 .comment {
-    background: rgba(255, 237, 0, 0.03);
+    background: #fffef8;
     padding: 18px;
     margin-bottom: 16px;
     border-radius: 12px;
-    border-left: 3px solid #ffed00;
+    border-left: 4px solid #d4af37;
     transition: all 0.3s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .comment:hover {
-    background: rgba(255, 237, 0, 0.05);
+    background: #fffcf0;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
 .comment-author {
-    color: #ffed00;
+    color: #8b7355;
     font-weight: 600;
     margin-bottom: 8px;
     font-size: 0.95rem;
 }
 
 .comment-text {
-    color: #ddd;
+    color: #2c2c2c;
     line-height: 1.6;
     margin-bottom: 8px;
 }
 
 .comment-date {
-    color: #777;
+    color: #999;
     font-size: 0.85rem;
 }
 
@@ -496,8 +508,7 @@ h1 {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.97);
-    backdrop-filter: blur(10px);
+    background: rgba(250, 249, 246, 0.98);
     overflow-y: auto;
     z-index: 1000;
     padding: 20px;
@@ -510,11 +521,11 @@ h1 {
 .admin-content {
     max-width: 900px;
     margin: 40px auto;
-    background: rgba(255, 255, 255, 0.03);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 237, 0, 0.3);
+    background: #ffffff;
+    border: 2px solid #e8d57e;
     border-radius: 16px;
     padding: 40px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 .admin-header {
@@ -523,19 +534,19 @@ h1 {
     align-items: center;
     margin-bottom: 40px;
     padding-bottom: 24px;
-    border-bottom: 1px solid rgba(255, 237, 0, 0.2);
+    border-bottom: 2px solid #e8d57e;
 }
 
 .admin-header h2 {
-    color: #ffed00;
+    color: #1a1a1a;
     font-size: 1.8rem;
     font-weight: 600;
 }
 
 .close-admin-btn {
-    background: rgba(255, 237, 0, 0.1);
-    color: #ffed00;
-    border: 1px solid rgba(255, 237, 0, 0.3);
+    background: #f5f5f5;
+    color: #1a1a1a;
+    border: 2px solid #e0e0e0;
     padding: 10px 24px;
     font-size: 0.95rem;
     cursor: pointer;
@@ -545,8 +556,8 @@ h1 {
 }
 
 .close-admin-btn:hover {
-    background: rgba(255, 237, 0, 0.2);
-    border-color: #ffed00;
+    background: #e8e8e8;
+    border-color: #d4af37;
 }
 
 .admin-form {
@@ -559,7 +570,7 @@ h1 {
 
 .form-group label {
     display: block;
-    color: #ffed00;
+    color: #1a1a1a;
     margin-bottom: 8px;
     font-weight: 600;
     font-size: 0.95rem;
@@ -570,10 +581,10 @@ h1 {
 .form-group select {
     width: 100%;
     padding: 14px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 237, 0, 0.3);
+    background: #ffffff;
+    border: 2px solid #e0e0e0;
     border-radius: 8px;
-    color: #fff;
+    color: #2c2c2c;
     font-size: 1rem;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
     transition: all 0.3s ease;
@@ -589,14 +600,14 @@ h1 {
 .form-group textarea:focus,
 .form-group select:focus {
     outline: none;
-    background: rgba(255, 255, 255, 0.08);
-    border-color: #ffed00;
-    box-shadow: 0 0 0 3px rgba(255, 237, 0, 0.1);
+    background: #fffef8;
+    border-color: #d4af37;
+    box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
 }
 
 .add-item-btn, .save-session-btn, .export-btn, .import-btn {
-    background: linear-gradient(135deg, #ffed00 0%, #ffd700 100%);
-    color: #000;
+    background: #1a1a1a;
+    color: #f4e157;
     border: none;
     padding: 12px 24px;
     font-size: 0.95rem;
@@ -610,7 +621,8 @@ h1 {
 
 .add-item-btn:hover, .save-session-btn:hover, .export-btn:hover, .import-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(255, 237, 0, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    background: #2a2a2a;
 }
 
 .item-list {
@@ -618,18 +630,19 @@ h1 {
 }
 
 .item-preview {
-    background: rgba(255, 237, 0, 0.03);
+    background: #fffef8;
     padding: 16px;
     margin-bottom: 16px;
-    border-left: 3px solid #ffed00;
+    border-left: 4px solid #d4af37;
     border-radius: 12px;
-    color: #fff;
+    color: #2c2c2c;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .remove-item-btn {
-    background: rgba(255, 107, 107, 0.2);
-    color: #ff6b6b;
-    border: 1px solid rgba(255, 107, 107, 0.3);
+    background: #fef5f5;
+    color: #c62828;
+    border: 2px solid #e57373;
     padding: 8px 16px;
     font-size: 0.9rem;
     cursor: pointer;
@@ -639,8 +652,8 @@ h1 {
 }
 
 .remove-item-btn:hover {
-    background: rgba(255, 107, 107, 0.3);
-    border-color: #ff6b6b;
+    background: #fbe9e9;
+    border-color: #c62828;
 }
 
 .sessions-list {
@@ -648,25 +661,26 @@ h1 {
 }
 
 .session-list-item {
-    background: rgba(255, 237, 0, 0.03);
+    background: #fffef8;
     padding: 20px;
     margin-bottom: 16px;
-    border-left: 3px solid #ffed00;
+    border-left: 4px solid #d4af37;
     border-radius: 12px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .session-list-item h4 {
-    color: #ffed00;
+    color: #1a1a1a;
     font-weight: 600;
 }
 
 .delete-session-btn {
-    background: rgba(255, 107, 107, 0.2);
-    color: #ff6b6b;
-    border: 1px solid rgba(255, 107, 107, 0.3);
+    background: #fef5f5;
+    color: #c62828;
+    border: 2px solid #e57373;
     padding: 10px 20px;
     font-size: 0.9rem;
     cursor: pointer;
@@ -676,8 +690,8 @@ h1 {
 }
 
 .delete-session-btn:hover {
-    background: rgba(255, 107, 107, 0.3);
-    border-color: #ff6b6b;
+    background: #fbe9e9;
+    border-color: #c62828;
 }
 
 .admin-actions {
@@ -692,8 +706,8 @@ h1 {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.95);
-    backdrop-filter: blur(10px);
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(5px);
     z-index: 2000;
     display: flex;
     align-items: center;
@@ -705,17 +719,17 @@ h1 {
 }
 
 .password-content {
-    background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 237, 0, 0.3);
+    background: #ffffff;
+    border: 2px solid #e8d57e;
     border-radius: 16px;
     padding: 40px;
     max-width: 400px;
     width: 90%;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
 }
 
 .password-content h3 {
-    color: #ffed00;
+    color: #1a1a1a;
     margin-bottom: 24px;
     font-size: 1.5rem;
     text-align: center;
@@ -724,18 +738,18 @@ h1 {
 .password-content input {
     width: 100%;
     padding: 14px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 237, 0, 0.3);
+    background: #ffffff;
+    border: 2px solid #e0e0e0;
     border-radius: 8px;
-    color: #fff;
+    color: #2c2c2c;
     font-size: 1rem;
     margin-bottom: 20px;
 }
 
 .password-content input:focus {
     outline: none;
-    border-color: #ffed00;
-    box-shadow: 0 0 0 3px rgba(255, 237, 0, 0.1);
+    border-color: #d4af37;
+    box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
 }
 
 .password-btn-container {
@@ -754,18 +768,27 @@ h1 {
 }
 
 .password-submit {
-    background: linear-gradient(135deg, #ffed00 0%, #ffd700 100%);
-    color: #000;
+    background: #1a1a1a;
+    color: #f4e157;
+}
+
+.password-submit:hover {
+    background: #2a2a2a;
+    transform: translateY(-2px);
 }
 
 .password-cancel {
-    background: rgba(255, 255, 255, 0.1);
-    color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: #f5f5f5;
+    color: #666;
+    border: 2px solid #e0e0e0;
+}
+
+.password-cancel:hover {
+    background: #e8e8e8;
 }
 
 .password-error {
-    color: #ff6b6b;
+    color: #c62828;
     text-align: center;
     margin-top: 12px;
     font-size: 0.9rem;
@@ -817,17 +840,18 @@ h1 {
 .empty-state {
     text-align: center;
     padding: 80px 20px;
-    color: #777;
+    color: #999;
 }
 
 .empty-state h2 {
-    color: #ffed00;
+    color: #1a1a1a;
     margin-bottom: 16px;
     font-size: 1.6rem;
 }
 
 .empty-state p {
     font-size: 1.05rem;
+    color: #666;
 }
 
 /* Helper text */
@@ -839,20 +863,45 @@ h1 {
 }
 
 .parse-info {
-    background: rgba(255, 237, 0, 0.05);
-    border: 1px solid rgba(255, 237, 0, 0.2);
+    background: #fffef8;
+    border: 2px solid #e8d57e;
     border-radius: 8px;
     padding: 12px;
     margin-top: 8px;
-    color: #ccc;
+    color: #555;
     font-size: 0.9rem;
     line-height: 1.6;
 }
 
 .parse-info code {
-    background: rgba(255, 255, 255, 0.1);
+    background: #f5f5f5;
     padding: 2px 6px;
     border-radius: 4px;
-    color: #ffed00;
+    color: #8b7355;
     font-family: 'Courier New', monospace;
+}
+
+/* Save reminder */
+.save-reminder {
+    background: #fffcf0;
+    border: 2px solid #d4af37;
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 20px;
+    color: #8b7355;
+}
+
+.save-reminder h4 {
+    color: #1a1a1a;
+    margin-bottom: 12px;
+    font-size: 1.1rem;
+}
+
+.save-reminder p {
+    margin-bottom: 12px;
+    line-height: 1.6;
+}
+
+.save-reminder strong {
+    color: #1a1a1a;
 }

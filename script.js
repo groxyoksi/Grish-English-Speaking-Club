@@ -724,9 +724,70 @@ function saveNewSession(event) {
     sessions.sort((a, b) => new Date(b.date) - new Date(a.date));
     saveData();
     
-    alert('Session saved successfully!');
-    closeAdmin();
-    displaySessions();
+    // Show success message with export reminder
+    showSaveReminder();
+}
+
+// Show save reminder modal
+function showSaveReminder() {
+    const reminder = document.createElement('div');
+    reminder.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        border: 3px solid #d4af37;
+        border-radius: 16px;
+        padding: 32px;
+        max-width: 500px;
+        width: 90%;
+        z-index: 3000;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    `;
+    
+    reminder.innerHTML = `
+        <div style="text-align: center;">
+            <h3 style="color: #1a1a1a; margin-bottom: 16px; font-size: 1.5rem;">✅ Session Saved!</h3>
+            <div class="save-reminder">
+                <h4>⚠️ Important: Export Your Data</h4>
+                <p>Your session is saved to this browser only. To make it permanent and visible to students:</p>
+                <p><strong>1.</strong> Click "Export Data" button below</p>
+                <p><strong>2.</strong> Upload the JSON file to your GitHub repository</p>
+                <p><strong>3.</strong> Replace the old data.json file</p>
+                <p style="margin-bottom: 0;"><strong>Without this step, students won't see the new session!</strong></p>
+            </div>
+            <div style="margin-top: 24px; display: flex; gap: 12px;">
+                <button onclick="exportData(); this.parentElement.parentElement.parentElement.remove();" style="flex: 1; background: #1a1a1a; color: #f4e157; border: none; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                    Export Data Now
+                </button>
+                <button onclick="this.parentElement.parentElement.parentElement.remove(); closeAdmin(); displaySessions();" style="flex: 1; background: #f5f5f5; color: #666; border: 2px solid #e0e0e0; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                    I'll Do It Later
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(reminder);
+    
+    // Add backdrop
+    const backdrop = document.createElement('div');
+    backdrop.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 2999;
+    `;
+    backdrop.onclick = () => {
+        backdrop.remove();
+        reminder.remove();
+        closeAdmin();
+        displaySessions();
+    };
+    document.body.insertBefore(backdrop, reminder);
 }
 
 // Delete session
