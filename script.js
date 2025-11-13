@@ -6,7 +6,7 @@ let editingSessionId = null;
 let isAdminLoggedIn = false;
 
 // Admin password (change this to your own password)
-const ADMIN_PASSWORD = "gagagrigri25"; // Change this password!
+const ADMIN_PASSWORD = "esl2025"; // Change this password!
 
 // Check if admin is logged in on page load
 function checkAdminSession() {
@@ -717,55 +717,59 @@ function editSession(sessionId) {
         if (note.pronunciation) {
             text += '\n🔊 Pronunciation: ' + note.pronunciation;
         }
-        text += '\n====';
         if (note.definition) {
             text += '\n' + note.definition;
         }
-        text += '\n====';
         if (note.examples && note.examples.length > 0) {
             text += '\n' + note.examples.join('\n');
         }
         return text;
-    }).join('\n\n');
+    }).join('\n====\n');
     
     document.getElementById('notesText').value = notesText;
     
     // Populate exercises
     const exercisesContainer = document.getElementById('exercisesContainer');
     exercisesContainer.innerHTML = '';
-    session.exercises.forEach(exercise => {
-        addExerciseFields();
-        const lastExercise = exercisesContainer.lastElementChild;
-        lastExercise.querySelector('[data-field="type"]').value = exercise.type;
-        updateExerciseFields(lastExercise.id);
-        
-        setTimeout(() => {
-            if (exercise.type === 'fill-blank') {
-                lastExercise.querySelector('[data-field="question"]').value = exercise.question;
-                lastExercise.querySelector('[data-field="answer"]').value = exercise.answer;
-            } else if (exercise.type === 'multiple-choice') {
-                lastExercise.querySelector('[data-field="question"]').value = exercise.question;
-                const optionsText = exercise.options.map((opt, idx) => 
-                    idx === exercise.correctIndex ? '*' + opt : opt
-                ).join('\n');
-                lastExercise.querySelector('[data-field="options"]').value = optionsText;
-            } else if (exercise.type === 'text') {
-                lastExercise.querySelector('[data-field="question"]').value = exercise.question;
-                lastExercise.querySelector('[data-field="instructions"]').value = exercise.instructions;
-            }
-        }, 100);
-    });
+    if (session.exercises && session.exercises.length > 0) {
+        session.exercises.forEach(exercise => {
+            addExerciseFields();
+            const lastExercise = exercisesContainer.lastElementChild;
+            lastExercise.querySelector('[data-field="type"]').value = exercise.type;
+            updateExerciseFields(lastExercise.id);
+            
+            setTimeout(() => {
+                if (exercise.type === 'fill-blank') {
+                    lastExercise.querySelector('[data-field="question"]').value = exercise.question || '';
+                    lastExercise.querySelector('[data-field="answer"]').value = exercise.answer || '';
+                } else if (exercise.type === 'multiple-choice') {
+                    lastExercise.querySelector('[data-field="question"]').value = exercise.question || '';
+                    const optionsText = exercise.options.map((opt, idx) => 
+                        idx === exercise.correctIndex ? '*' + opt : opt
+                    ).join('\n');
+                    lastExercise.querySelector('[data-field="options"]').value = optionsText;
+                } else if (exercise.type === 'text') {
+                    lastExercise.querySelector('[data-field="question"]').value = exercise.question || '';
+                    lastExercise.querySelector('[data-field="instructions"]').value = exercise.instructions || '';
+                }
+            }, 100);
+        });
+    }
     
     // Populate links
     const linksContainer = document.getElementById('linksContainer');
     linksContainer.innerHTML = '';
-    session.links.forEach(link => {
-        addLinkFields();
-        const lastLink = linksContainer.lastElementChild;
-        lastLink.querySelector('[data-field="title"]').value = link.title;
-        lastLink.querySelector('[data-field="url"]').value = link.url;
-        lastLink.querySelector('[data-field="description"]').value = link.description || '';
-    });
+    if (session.links && session.links.length > 0) {
+        session.links.forEach(link => {
+            addLinkFields();
+            const lastLink = linksContainer.lastElementChild;
+            setTimeout(() => {
+                lastLink.querySelector('[data-field="title"]').value = link.title || '';
+                lastLink.querySelector('[data-field="url"]').value = link.url || '';
+                lastLink.querySelector('[data-field="description"]').value = link.description || '';
+            }, 100);
+        });
+    }
     
     // Change button text
     document.querySelector('.save-session-btn').textContent = 'Update Session';
@@ -1038,9 +1042,11 @@ function showSuccessMessage() {
         <h3 style="color: #1a1a1a; margin-bottom: 12px; font-size: 1.5rem;">Session Saved!</h3>
         <p style="color: #666; margin-bottom: 24px;">Your session is now live and visible to all students instantly!</p>
         <button onclick="
-            this.parentElement.parentElement.remove(); 
-            document.querySelector('.admin-panel.active')?.remove();
+            this.parentElement.parentElement.remove();
+            document.getElementById('adminPanel')?.remove();
             document.querySelectorAll('.session-detail').forEach(el => el.remove());
+            const backdrop = document.querySelector('.password-modal');
+            if (backdrop) backdrop.remove();
             const container = document.getElementById('sessionsContainer');
             if (container) {
                 container.style.display = 'grid';
@@ -1066,7 +1072,7 @@ function showSuccessMessage() {
     backdrop.onclick = () => {
         backdrop.remove();
         message.remove();
-        document.querySelector('.admin-panel.active')?.remove();
+        document.getElementById('adminPanel')?.remove();
         document.querySelectorAll('.session-detail').forEach(el => el.remove());
         const container = document.getElementById('sessionsContainer');
         if (container) {
