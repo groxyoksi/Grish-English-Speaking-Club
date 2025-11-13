@@ -557,19 +557,27 @@ function createAdminPanel() {
                 <div class="form-group">
                     <label>Notes (Paste all notes at once)</label>
                     <div class="parse-info">
-                        Paste your notes in this format:<br>
-                        <code>WORD /pronunciation/<br>
-                        🔊 Pronunciation: https://link.com<br>
+                        <strong>Format:</strong> Separate each note with a <strong>blank line</strong>.<br><br>
+                        <strong>Within each note:</strong><br>
+                        <code>
+                        WORD OR PHRASE<br>
+                        🔊 Pronunciation: https://link.com (optional)<br>
                         ====<br>
-                        definition<br>
+                        Definition goes here<br>
                         ====<br>
                         Example 1<br>
-                        Example 2</code>
+                        Example 2<br>
+                        <br>
+                        NEXT WORD (blank line above!)
+                        </code>
                         <br><br>
-                        Separate each note with a blank line.
+                        <strong>Key points:</strong><br>
+                        • First line = title/word<br>
+                        • ==== separates definition from examples<br>
+                        • Blank line separates different notes
                     </div>
                     <textarea id="notesText" placeholder="Paste all your notes here..." style="min-height: 300px;"></textarea>
-                    <p class="helper-text">The parser will automatically extract title, pronunciation, definition, and examples</p>
+                    <p class="helper-text">Remember: Use blank lines to separate different notes!</p>
                 </div>
                 
                 <div class="form-group">
@@ -619,9 +627,38 @@ function parseNotes(notesText) {
     if (!notesText || !notesText.trim()) return [];
     
     const notes = [];
-    // Split by double line breaks to separate notes
-    const noteBlocks = notesText.split(/\n\s*\n/).filter(block => block.trim());
     
+    // First, split the entire text into individual note blocks
+    // A note block ends when we see four equal signs followed by a blank line (or end of text)
+    // We'll use a more sophisticated approach
+    
+    // Split by lines first
+    const allLines = notesText.split('\n');
+    let currentNoteLines = [];
+    let noteBlocks = [];
+    
+    for (let i = 0; i < allLines.length; i++) {
+        const line = allLines[i].trim();
+        
+        // Check if this is a separator line (empty line after collecting some content)
+        if (line === '' && currentNoteLines.length > 0) {
+            // Check if we have accumulated a complete note
+            // A complete note should have at least a title
+            if (currentNoteLines.length > 0) {
+                noteBlocks.push(currentNoteLines.join('\n'));
+                currentNoteLines = [];
+            }
+        } else if (line !== '') {
+            currentNoteLines.push(line);
+        }
+    }
+    
+    // Don't forget the last note if there's no trailing blank line
+    if (currentNoteLines.length > 0) {
+        noteBlocks.push(currentNoteLines.join('\n'));
+    }
+    
+    // Now parse each note block
     noteBlocks.forEach(block => {
         const lines = block.split('\n').map(l => l.trim()).filter(l => l);
         if (lines.length === 0) return;
@@ -635,11 +672,12 @@ function parseNotes(notesText) {
         
         let currentSection = 'title';
         let definitionStarted = false;
+        let examplesStarted = false;
         
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
             
-            // Check if it's the title line
+            // Check if it's the title line (first line)
             if (i === 0) {
                 note.title = line;
                 continue;
@@ -654,24 +692,22 @@ function parseNotes(notesText) {
                 continue;
             }
             
-            // Check for separator
+            // Check for separator (four equal signs)
             if (line === '====' || line === '====') {
                 if (!definitionStarted) {
                     currentSection = 'definition';
                     definitionStarted = true;
                 } else {
                     currentSection = 'examples';
+                    examplesStarted = true;
                 }
                 continue;
             }
             
             // Add content to appropriate section
-            if (currentSection === 'definition') {
+            if (currentSection === 'definition' && definitionStarted && !examplesStarted) {
                 note.definition += (note.definition ? ' ' : '') + line;
-            } else if (currentSection === 'examples' || (definitionStarted && currentSection !== 'definition')) {
-                note.examples.push(line);
-            } else if (currentSection === 'title' && i > 0) {
-                // If no separator found, treat remaining as examples
+            } else if (currentSection === 'examples' || examplesStarted) {
                 note.examples.push(line);
             }
         }
