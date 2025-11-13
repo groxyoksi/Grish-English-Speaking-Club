@@ -4,7 +4,7 @@ let currentSessionId = null;
 let firebaseReady = false;
 
 // Admin password (change this to your own password)
-const ADMIN_PASSWORD = "gagagrigri25"; // Change this password!
+const ADMIN_PASSWORD = "esl2025"; // Change this password!
 
 // Wait for Firebase to be ready
 function waitForFirebase() {
