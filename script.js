@@ -1,53 +1,26 @@
-// Data structure and state management
+// ============================================================================
+// GLOBAL STATE AND CONFIGURATION
+// ============================================================================
+
 let sessions = [];
 let currentSessionId = null;
+let currentUser = null;
 let firebaseReady = false;
 let editingSessionId = null;
 let isAdminLoggedIn = false;
 
 // Admin password (change this to your own password)
-const ADMIN_PASSWORD = "esl2025"; // Change this password!
+const ADMIN_PASSWORD = "gagagrigri25"; // Change this password!
 
-// Check if admin is logged in on page load
-function checkAdminSession() {
-    const adminSession = localStorage.getItem('eslAdminSession');
-    if (adminSession) {
-        const sessionData = JSON.parse(adminSession);
-        // Check if session is less than 7 days old
-        const sessionAge = Date.now() - sessionData.timestamp;
-        const sevenDays = 7 * 24 * 60 * 60 * 1000;
-        
-        if (sessionAge < sevenDays) {
-            isAdminLoggedIn = true;
-            return true;
-        } else {
-            // Session expired, remove it
-            localStorage.removeItem('eslAdminSession');
-        }
-    }
-    return false;
-}
-
-// Save admin session
-function saveAdminSession() {
-    localStorage.setItem('eslAdminSession', JSON.stringify({
-        timestamp: Date.now()
-    }));
-    isAdminLoggedIn = true;
-}
-
-// Logout admin
-function logoutAdmin() {
-    localStorage.removeItem('eslAdminSession');
-    isAdminLoggedIn = false;
-    alert('Logged out successfully!');
-}
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
 
 // Wait for Firebase to be ready
 function waitForFirebase() {
     return new Promise((resolve) => {
         const checkFirebase = () => {
-            if (window.firebaseDB) {
+            if (window.firebaseDB && window.firebaseAuth) {
                 firebaseReady = true;
                 resolve();
             } else {
@@ -61,17 +34,570 @@ function waitForFirebase() {
 // Initialize the app
 document.addEventListener('DOMContentLoaded', async () => {
     await waitForFirebase();
+    initDarkMode();
     checkAdminSession();
+    setupAuthStateListener();
     setupEventListeners();
     loadSessions();
 });
 
-// Load sessions from Firebase
+// ============================================================================
+// AUTHENTICATION SYSTEM
+// ============================================================================
+
+// Setup auth state listener
+function setupAuthStateListener() {
+    window.firebaseAuthState(window.firebaseAuth, (user) => {
+        if (user) {
+            currentUser = {
+                uid: user.uid,
+                email: user.email,
+                displayName: user.displayName || user.email.split('@')[0]
+            };
+            updateUIForLoggedInUser();
+        } else {
+            currentUser = null;
+            updateUIForLoggedOutUser();
+        }
+    });
+}
+
+// Update UI when user is logged in
+function updateUIForLoggedInUser() {
+    const loginBtn = document.getElementById('loginBtn');
+    const userBtn = document.getElementById('userBtn');
+    const userName = document.getElementById('userName');
+    
+    loginBtn.style.display = 'none';
+    userBtn.style.display = 'flex';
+    userName.textContent = currentUser.displayName;
+}
+
+// Update UI when user is logged out
+function updateUIForLoggedOutUser() {
+    const loginBtn = document.getElementById('loginBtn');
+    const userBtn = document.getElementById('userBtn');
+    
+    loginBtn.style.display = 'block';
+    userBtn.style.display = 'none';
+}
+
+// Show auth modal
+function showAuthModal() {
+    const modal = document.createElement('div');
+    modal.className = 'auth-modal active';
+    modal.innerHTML = `
+        <div class="auth-content">
+            <h3>Welcome to Grish English</h3>
+            
+            <div class="auth-tabs">
+                <button class="auth-tab active" onclick="switchAuthTab('login')">Login</button>
+                <button class="auth-tab" onclick="switchAuthTab('signup')">Sign Up</button>
+            </div>
+            
+            <!-- Login Form -->
+            <form id="loginForm" class="auth-form" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="loginEmail" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="loginPassword" required>
+                </div>
+                <button type="submit" class="auth-submit">Login</button>
+                <button type="button" class="auth-cancel" onclick="closeAuthModal()">Cancel</button>
+                <div id="loginError" class="auth-error"></div>
+            </form>
+            
+            <!-- Sign Up Form -->
+            <form id="signupForm" class="auth-form" style="display: none;" onsubmit="handleSignup(event)">
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="signupName" required>
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="signupEmail" required>
+                </div>
+                <div class="form-group">
+                    <label>Password (at least 6 characters)</label>
+                    <input type="password" id="signupPassword" required minlength="6">
+                </div>
+                <button type="submit" class="auth-submit">Sign Up</button>
+                <button type="button" class="auth-cancel" onclick="closeAuthModal()">Cancel</button>
+                <div id="signupError" class="auth-error"></div>
+            </form>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+// Close auth modal
+function closeAuthModal() {
+    const modal = document.querySelector('.auth-modal');
+    if (modal) modal.remove();
+}
+
+// Switch between login and signup tabs
+function switchAuthTab(tab) {
+    const loginTab = document.querySelector('.auth-tab:first-child');
+    const signupTab = document.querySelector('.auth-tab:last-child');
+    const loginForm = document.getElementById('loginForm');
+    const signupForm = document.getElementById('signupForm');
+    
+    if (tab === 'login') {
+        loginTab.classList.add('active');
+        signupTab.classList.remove('active');
+        loginForm.style.display = 'block';
+        signupForm.style.display = 'none';
+    } else {
+        signupTab.classList.add('active');
+        loginTab.classList.remove('active');
+        signupForm.style.display = 'block';
+        loginForm.style.display = 'none';
+    }
+}
+
+// Handle login
+async function handleLogin(event) {
+    event.preventDefault();
+    
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+    const errorDiv = document.getElementById('loginError');
+    
+    try {
+        await window.firebaseSignIn(window.firebaseAuth, email, password);
+        closeAuthModal();
+    } catch (error) {
+        console.error('Login error:', error);
+        errorDiv.textContent = getAuthErrorMessage(error.code);
+    }
+}
+
+// Handle signup
+async function handleSignup(event) {
+    event.preventDefault();
+    
+    const name = document.getElementById('signupName').value;
+    const email = document.getElementById('signupEmail').value;
+    const password = document.getElementById('signupPassword').value;
+    const errorDiv = document.getElementById('signupError');
+    
+    try {
+        const userCredential = await window.firebaseCreateUser(window.firebaseAuth, email, password);
+        await window.firebaseUpdateProfile(userCredential.user, { displayName: name });
+        closeAuthModal();
+    } catch (error) {
+        console.error('Signup error:', error);
+        errorDiv.textContent = getAuthErrorMessage(error.code);
+    }
+}
+
+// Get user-friendly error messages
+function getAuthErrorMessage(errorCode) {
+    const messages = {
+        'auth/email-already-in-use': 'This email is already registered.',
+        'auth/invalid-email': 'Invalid email address.',
+        'auth/operation-not-allowed': 'Operation not allowed.',
+        'auth/weak-password': 'Password is too weak. Please use at least 6 characters.',
+        'auth/user-disabled': 'This account has been disabled.',
+        'auth/user-not-found': 'No account found with this email.',
+        'auth/wrong-password': 'Incorrect password.',
+        'auth/invalid-credential': 'Invalid email or password.',
+        'auth/too-many-requests': 'Too many attempts. Please try again later.'
+    };
+    return messages[errorCode] || 'An error occurred. Please try again.';
+}
+
+// Show user profile menu
+function showUserMenu() {
+    const existingMenu = document.querySelector('.profile-menu');
+    if (existingMenu) {
+        existingMenu.remove();
+        return;
+    }
+    
+    const userBtn = document.getElementById('userBtn');
+    const menu = document.createElement('div');
+    menu.className = 'profile-menu active';
+    menu.innerHTML = `
+        <div class="profile-menu-item" onclick="showFavorites()">⭐ My Favorites</div>
+        <div class="profile-menu-item" onclick="handleLogout()">🚪 Logout</div>
+    `;
+    
+    userBtn.style.position = 'relative';
+    userBtn.appendChild(menu);
+    
+    // Close menu when clicking outside
+    setTimeout(() => {
+        document.addEventListener('click', function closeMenu(e) {
+            if (!userBtn.contains(e.target)) {
+                menu.remove();
+                document.removeEventListener('click', closeMenu);
+            }
+        });
+    }, 0);
+}
+
+// Handle logout
+async function handleLogout() {
+    try {
+        await window.firebaseSignOut(window.firebaseAuth);
+        const menu = document.querySelector('.profile-menu');
+        if (menu) menu.remove();
+        
+        // Close any open session details
+        const detailView = document.querySelector('.session-detail');
+        if (detailView) {
+            closeSession();
+        }
+    } catch (error) {
+        console.error('Logout error:', error);
+        alert('Error logging out. Please try again.');
+    }
+}
+
+// ============================================================================
+// DARK MODE
+// ============================================================================
+
+function initDarkMode() {
+    const savedTheme = localStorage.getItem('eslTheme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    updateDarkModeIcon(savedTheme);
+}
+
+function toggleDarkMode() {
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('eslTheme', newTheme);
+    updateDarkModeIcon(newTheme);
+}
+
+function updateDarkModeIcon(theme) {
+    const button = document.getElementById('themeToggle');
+    if (button) {
+        button.textContent = theme === 'light' ? '🌙' : '☀️';
+    }
+}
+
+// ============================================================================
+// SEARCH FUNCTIONALITY
+// ============================================================================
+
+function setupSearch() {
+    const searchInput = document.getElementById('searchInput');
+    const clearBtn = document.getElementById('clearSearch');
+    
+    searchInput.addEventListener('input', (e) => {
+        const query = e.target.value.trim();
+        if (query.length > 0) {
+            clearBtn.style.display = 'block';
+            searchSessions(query);
+        } else {
+            clearBtn.style.display = 'none';
+            hideSearchResults();
+        }
+    });
+    
+    clearBtn.addEventListener('click', () => {
+        searchInput.value = '';
+        clearBtn.style.display = 'none';
+        hideSearchResults();
+    });
+}
+
+function searchSessions(query) {
+    if (!query || query.length < 2) {
+        hideSearchResults();
+        return;
+    }
+    
+    const results = [];
+    const lowerQuery = query.toLowerCase();
+    
+    sessions.forEach(session => {
+        if (session.notes) {
+            session.notes.forEach(note => {
+                const searchText = `${note.title} ${note.definition} ${note.examples.join(' ')}`.toLowerCase();
+                if (searchText.includes(lowerQuery)) {
+                    results.push({
+                        sessionId: session.id,
+                        sessionDate: session.date,
+                        note: note
+                    });
+                }
+            });
+        }
+    });
+    
+    displaySearchResults(results);
+}
+
+function displaySearchResults(results) {
+    const container = document.getElementById('searchResults');
+    
+    if (results.length === 0) {
+        container.innerHTML = '<div class="no-results">No results found</div>';
+        container.classList.add('active');
+        return;
+    }
+    
+    container.innerHTML = results.map(result => `
+        <div class="search-result" onclick="openSessionFromSearch('${result.sessionId}')">
+            <h4>${escapeHtml(result.note.title)}</h4>
+            <p>${escapeHtml(result.note.definition)}</p>
+            <small>From session: ${formatDate(result.sessionDate)}</small>
+        </div>
+    `).join('');
+    
+    container.classList.add('active');
+}
+
+function hideSearchResults() {
+    const container = document.getElementById('searchResults');
+    container.classList.remove('active');
+    container.innerHTML = '';
+}
+
+function openSessionFromSearch(sessionId) {
+    hideSearchResults();
+    document.getElementById('searchInput').value = '';
+    document.getElementById('clearSearch').style.display = 'none';
+    openSession(sessionId);
+}
+
+// ============================================================================
+// FAVORITES SYSTEM
+// ============================================================================
+
+function getFavorites() {
+    if (!currentUser) return [];
+    const key = `eslFavorites_${currentUser.uid}`;
+    return JSON.parse(localStorage.getItem(key) || '[]');
+}
+
+function saveFavorites(favorites) {
+    if (!currentUser) return;
+    const key = `eslFavorites_${currentUser.uid}`;
+    localStorage.setItem(key, JSON.stringify(favorites));
+}
+
+function toggleFavorite(sessionId, noteTitle) {
+    if (!currentUser) {
+        alert('Please login to save favorites!');
+        showAuthModal();
+        return false;
+    }
+    
+    const favorites = getFavorites();
+    const favoriteId = `${sessionId}-${noteTitle}`;
+    
+    const index = favorites.findIndex(f => f.id === favoriteId);
+    
+    if (index > -1) {
+        favorites.splice(index, 1);
+    } else {
+        const session = sessions.find(s => s.id === sessionId);
+        const note = session.notes.find(n => n.title === noteTitle);
+        
+        favorites.push({
+            id: favoriteId,
+            sessionId: sessionId,
+            sessionDate: session.date,
+            note: note,
+            addedAt: Date.now()
+        });
+    }
+    
+    saveFavorites(favorites);
+    return index === -1; // Return true if added, false if removed
+}
+
+function isFavorite(sessionId, noteTitle) {
+    if (!currentUser) return false;
+    const favorites = getFavorites();
+    return favorites.some(f => f.id === `${sessionId}-${noteTitle}`);
+}
+
+function toggleFavoriteUI(sessionId, noteTitle, button) {
+    const isNowFavorite = toggleFavorite(sessionId, noteTitle);
+    if (isNowFavorite !== false) {
+        button.classList.toggle('active');
+    }
+}
+
+function showFavorites() {
+    if (!currentUser) {
+        showAuthModal();
+        return;
+    }
+    
+    const favorites = getFavorites();
+    
+    // Hide main page
+    document.getElementById('sessionsContainer').style.display = 'none';
+    document.querySelector('.search-section').style.display = 'none';
+    
+    // Remove any existing detail views
+    document.querySelectorAll('.session-detail').forEach(el => el.remove());
+    
+    // Create favorites view
+    const favoritesView = document.createElement('div');
+    favoritesView.className = 'session-detail active';
+    favoritesView.innerHTML = `
+        <button class="back-btn" onclick="closeFavorites()">← Back to Sessions</button>
+        
+        <div class="session-header">
+            <h2>⭐ My Favorites</h2>
+        </div>
+        
+        <div class="content-sections">
+            <div class="content-box">
+                ${favorites.length === 0 ? `
+                    <div class="empty-state">
+                        <h2>No Favorites Yet</h2>
+                        <p>Click the star icon on any vocabulary word to save it here!</p>
+                    </div>
+                ` : `
+                    ${favorites.map(fav => `
+                        <div class="note-item">
+                            <div class="note-header">
+                                <div class="note-title">${escapeHtml(fav.note.title)}</div>
+                                <button class="favorite-btn active" onclick="removeFavoriteFromView('${fav.id}', this)">⭐</button>
+                            </div>
+                            ${fav.note.pronunciation ? `<div class="note-pronunciation">🔊 <a href="${fav.note.pronunciation}" target="_blank">Pronunciation</a></div>` : ''}
+                            <div class="note-definition">${escapeHtml(fav.note.definition)}</div>
+                            ${fav.note.examples.map(ex => `<div class="note-example">${escapeHtml(ex)}</div>`).join('')}
+                            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-secondary);">
+                                <small style="color: var(--text-light);">From session: ${formatDate(fav.sessionDate)} • <a href="#" onclick="event.preventDefault(); openSession('${fav.sessionId}'); closeFavorites();" style="color: var(--accent-brown);">View session</a></small>
+                            </div>
+                        </div>
+                    `).join('')}
+                `}
+            </div>
+        </div>
+    `;
+    
+    document.querySelector('.container').appendChild(favoritesView);
+    
+    // Close user menu if open
+    const menu = document.querySelector('.profile-menu');
+    if (menu) menu.remove();
+}
+
+function closeFavorites() {
+    document.querySelectorAll('.session-detail').forEach(el => el.remove());
+    document.getElementById('sessionsContainer').style.display = 'grid';
+    document.querySelector('.search-section').style.display = 'block';
+}
+
+function removeFavoriteFromView(favoriteId, button) {
+    const [sessionId, ...titleParts] = favoriteId.split('-');
+    const noteTitle = titleParts.join('-');
+    
+    toggleFavorite(sessionId, noteTitle);
+    
+    // Remove from view
+    const noteItem = button.closest('.note-item');
+    noteItem.remove();
+    
+    // Check if there are any favorites left
+    const favorites = getFavorites();
+    if (favorites.length === 0) {
+        document.querySelector('.content-box').innerHTML = `
+            <div class="empty-state">
+                <h2>No Favorites Yet</h2>
+                <p>Click the star icon on any vocabulary word to save it here!</p>
+            </div>
+        `;
+    }
+}
+
+// ============================================================================
+// ADMIN SESSION MANAGEMENT
+// ============================================================================
+
+function checkAdminSession() {
+    const adminSession = localStorage.getItem('eslAdminSession');
+    if (adminSession) {
+        const sessionData = JSON.parse(adminSession);
+        const sessionAge = Date.now() - sessionData.timestamp;
+        const sevenDays = 7 * 24 * 60 * 60 * 1000;
+        
+        if (sessionAge < sevenDays) {
+            isAdminLoggedIn = true;
+            return true;
+        } else {
+            localStorage.removeItem('eslAdminSession');
+        }
+    }
+    return false;
+}
+
+function saveAdminSession() {
+    localStorage.setItem('eslAdminSession', JSON.stringify({
+        timestamp: Date.now()
+    }));
+    isAdminLoggedIn = true;
+}
+
+function logoutAdmin() {
+    localStorage.removeItem('eslAdminSession');
+    isAdminLoggedIn = false;
+    alert('Logged out successfully!');
+}
+
+function updateAdminButton() {
+    const adminBtn = document.getElementById('adminBtn');
+    if (isAdminLoggedIn) {
+        adminBtn.textContent = 'Admin ✓';
+        adminBtn.style.opacity = '0.9';
+    } else {
+        adminBtn.textContent = 'Admin';
+        adminBtn.style.opacity = '1';
+    }
+}
+
+// ============================================================================
+// EVENT LISTENERS
+// ============================================================================
+
+function setupEventListeners() {
+    const adminBtn = document.getElementById('adminBtn');
+    const loginBtn = document.getElementById('loginBtn');
+    const userBtn = document.getElementById('userBtn');
+    const themeToggle = document.getElementById('themeToggle');
+    
+    updateAdminButton();
+    
+    adminBtn.addEventListener('click', () => {
+        if (isAdminLoggedIn) {
+            openAdmin();
+        } else {
+            showPasswordModal();
+        }
+    });
+    
+    loginBtn.addEventListener('click', showAuthModal);
+    userBtn.addEventListener('click', showUserMenu);
+    themeToggle.addEventListener('click', toggleDarkMode);
+    
+    setupSearch();
+}
+
+// ============================================================================
+// SESSION LOADING AND DISPLAY
+// ============================================================================
+
 async function loadSessions() {
     try {
         const sessionsRef = window.firebaseRef(window.firebaseDB, 'sessions');
         
-        // Listen for real-time updates
         window.firebaseOnValue(sessionsRef, (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.val();
@@ -80,17 +606,15 @@ async function loadSessions() {
                 sessions = [];
             }
             
-            // Sort sessions by date (newest first)
             sessions.sort((a, b) => new Date(b.date) - new Date(a.date));
             displaySessions();
         });
     } catch (error) {
         console.error('Error loading sessions:', error);
-        displaySessions(); // Show empty state
+        displaySessions();
     }
 }
 
-// Save all sessions to Firebase
 async function saveSessions() {
     try {
         const sessionsRef = window.firebaseRef(window.firebaseDB, 'sessions');
@@ -107,7 +631,6 @@ async function saveSessions() {
     }
 }
 
-// Delete a session from Firebase
 async function deleteSessionFromFirebase(sessionId) {
     try {
         const sessionRef = window.firebaseRef(window.firebaseDB, `sessions/${sessionId}`);
@@ -119,39 +642,9 @@ async function deleteSessionFromFirebase(sessionId) {
     }
 }
 
-// Setup event listeners
-function setupEventListeners() {
-    const adminBtn = document.getElementById('adminBtn');
-    
-    // Update button text if logged in
-    updateAdminButton();
-    
-    adminBtn.addEventListener('click', () => {
-        if (isAdminLoggedIn) {
-            openAdmin();
-        } else {
-            showPasswordModal();
-        }
-    });
-}
-
-// Update admin button text
-function updateAdminButton() {
-    const adminBtn = document.getElementById('adminBtn');
-    if (isAdminLoggedIn) {
-        adminBtn.textContent = 'Admin ✓';
-        adminBtn.style.opacity = '0.9';
-    } else {
-        adminBtn.textContent = 'Admin';
-        adminBtn.style.opacity = '1';
-    }
-}
-
-// Display all sessions on the main page
 function displaySessions() {
     const container = document.getElementById('sessionsContainer');
     
-    // Clear any existing session detail view
     document.querySelectorAll('.session-detail').forEach(el => el.remove());
     
     if (sessions.length === 0) {
@@ -171,7 +664,6 @@ function displaySessions() {
         </div>
     `).join('');
     
-    // Add click listeners to session boxes
     document.querySelectorAll('.session-box').forEach(box => {
         box.addEventListener('click', function() {
             const sessionId = this.getAttribute('data-session-id');
@@ -180,14 +672,16 @@ function displaySessions() {
     });
 }
 
-// Format date for display
 function formatDate(dateString) {
     const date = new Date(dateString);
     const options = { month: 'long', day: 'numeric', year: 'numeric' };
     return date.toLocaleDateString('en-US', options);
 }
 
-// Open a specific session
+// ============================================================================
+// SESSION DETAIL VIEW
+// ============================================================================
+
 function openSession(sessionId) {
     console.log('Opening session:', sessionId);
     currentSessionId = sessionId;
@@ -200,26 +694,23 @@ function openSession(sessionId) {
     
     console.log('Session data:', session);
     
-    // Remove any existing detail views first
     document.querySelectorAll('.session-detail').forEach(el => el.remove());
     
-    // Hide main page
     const container = document.getElementById('sessionsContainer');
     container.style.display = 'none';
+    document.querySelector('.search-section').style.display = 'none';
     
-    // Create session detail view
     try {
         const detailView = createSessionDetailView(session);
         document.querySelector('.container').appendChild(detailView);
         console.log('Detail view created successfully');
     } catch (error) {
         console.error('Error creating detail view:', error);
-        // Show main page again if there's an error
         container.style.display = 'grid';
+        document.querySelector('.search-section').style.display = 'block';
     }
 }
 
-// Create session detail view
 function createSessionDetailView(session) {
     const detail = document.createElement('div');
     detail.className = 'session-detail active';
@@ -227,7 +718,10 @@ function createSessionDetailView(session) {
         <button class="back-btn" onclick="closeSession()">← Back to Sessions</button>
         
         <div class="session-header">
-            <h2>${formatDate(session.date)}</h2>
+            <div>
+                <h2>${formatDate(session.date)}</h2>
+            </div>
+            ${currentUser ? `<a href="#" class="favorites-link" onclick="event.preventDefault(); showFavorites();">⭐ My Favorites</a>` : ''}
         </div>
         
         <div class="tab-navigation">
@@ -236,7 +730,7 @@ function createSessionDetailView(session) {
                 Notes
             </button>
             <button class="tab-btn" onclick="switchTab('exercises')" id="tab-exercises">
-                <span class="tab-btn-icon">✏️</span>
+                <span class="tab-btn-icon">✍️</span>
                 Exercises
             </button>
             <button class="tab-btn" onclick="switchTab('links')" id="tab-links">
@@ -245,216 +739,122 @@ function createSessionDetailView(session) {
             </button>
         </div>
         
-        <div class="content-sections">
-            <div class="tab-content active" id="content-notes">
+        <div id="content-notes" class="tab-content active">
+            <div class="content-sections">
                 <div class="content-box">
-                    <h3>📝 Notes</h3>
+                    <h3>Vocabulary & Expressions</h3>
                     <div class="content-box-content">
-                        ${renderNotes(session.notes || [])}
+                        ${session.notes && session.notes.length > 0 ? session.notes.map((note, index) => `
+                            <div class="note-item">
+                                <div class="note-header">
+                                    <div class="note-title">${escapeHtml(note.title)}</div>
+                                    ${currentUser ? `<button class="favorite-btn ${isFavorite(session.id, note.title) ? 'active' : ''}" onclick="toggleFavoriteUI('${session.id}', '${escapeHtml(note.title)}', this)">⭐</button>` : ''}
+                                </div>
+                                ${note.pronunciation ? `<div class="note-pronunciation">🔊 <a href="${note.pronunciation}" target="_blank">Pronunciation</a></div>` : ''}
+                                <div class="note-definition">${escapeHtml(note.definition)}</div>
+                                ${note.examples.map(ex => `<div class="note-example">${escapeHtml(ex)}</div>`).join('')}
+                            </div>
+                        `).join('') : '<p>No notes available for this session.</p>'}
                     </div>
-                    ${renderCommentsSection(session.id, 'notes')}
                 </div>
+                
+                ${renderCommentsSection(session.id, 'notes')}
             </div>
-            
-            <div class="tab-content" id="content-exercises">
+        </div>
+        
+        <div id="content-exercises" class="tab-content">
+            <div class="content-sections">
                 <div class="content-box">
-                    <h3>✏️ Exercises</h3>
+                    <h3>Practice Exercises</h3>
                     <div class="content-box-content">
-                        ${renderExercises(session.exercises || [])}
+                        ${session.exercises && session.exercises.length > 0 ? session.exercises.map((exercise, index) => 
+                            renderExercise(exercise, index)
+                        ).join('') : '<p>No exercises available for this session.</p>'}
                     </div>
-                    ${renderCommentsSection(session.id, 'exercises')}
                 </div>
+                
+                ${renderCommentsSection(session.id, 'exercises')}
             </div>
-            
-            <div class="tab-content" id="content-links">
+        </div>
+        
+        <div id="content-links" class="tab-content">
+            <div class="content-sections">
                 <div class="content-box">
-                    <h3>🔗 Links</h3>
+                    <h3>Useful Resources</h3>
                     <div class="content-box-content">
-                        ${renderLinks(session.links || [])}
+                        ${session.links && session.links.length > 0 ? session.links.map(link => `
+                            <div class="link-item">
+                                <a href="${link.url}" target="_blank">${escapeHtml(link.title)}</a>
+                                ${link.description ? `<p>${escapeHtml(link.description)}</p>` : ''}
+                            </div>
+                        `).join('') : '<p>No links available for this session.</p>'}
                     </div>
-                    ${renderCommentsSection(session.id, 'links')}
                 </div>
+                
+                ${renderCommentsSection(session.id, 'links')}
             </div>
         </div>
     `;
-    
-    // Setup exercise interactions after rendering
-    setTimeout(() => setupExerciseInteractions(session.id), 0);
     
     return detail;
 }
 
-// Switch between tabs
-function switchTab(tabName) {
-    // Remove active class from all tabs
+function renderExercise(exercise, index) {
+    let html = '<div class="exercise-item">';
+    
+    if (exercise.type === 'fill-blank') {
+        html += `
+            <div class="exercise-question">${escapeHtml(exercise.question)}</div>
+            <input type="text" class="exercise-input" placeholder="Your answer..." data-answer="${escapeHtml(exercise.answer)}">
+            <button class="check-btn" onclick="checkFillBlank(${index})">Check Answer</button>
+            <div class="exercise-feedback"></div>
+        `;
+    } else if (exercise.type === 'multiple-choice') {
+        html += `
+            <div class="exercise-question">${escapeHtml(exercise.question)}</div>
+            <div class="exercise-options">
+                ${exercise.options.map((option, optIndex) => `
+                    <div class="exercise-option" onclick="selectOption(${index}, ${optIndex})">
+                        ${escapeHtml(option)}
+                    </div>
+                `).join('')}
+            </div>
+            <button class="check-btn" onclick="checkMultipleChoice(${index}, ${exercise.correctIndex})">Check Answer</button>
+            <div class="exercise-feedback"></div>
+        `;
+    } else if (exercise.type === 'text') {
+        html += `
+            <div class="exercise-question">${escapeHtml(exercise.question)}</div>
+            <div class="note-definition">${escapeHtml(exercise.instructions)}</div>
+        `;
+    }
+    
+    // Add links to exercises if they exist
+    if (exercise.links && exercise.links.length > 0) {
+        html += `
+            <div class="exercise-links">
+                <h5>📎 Related Links:</h5>
+                ${exercise.links.map(link => `
+                    <a href="${link.url}" target="_blank" class="exercise-link">
+                        ${escapeHtml(link.title)}${link.description ? ` - ${escapeHtml(link.description)}` : ''}
+                    </a>
+                `).join('')}
+            </div>
+        `;
+    }
+    
+    html += '</div>';
+    return html;
+}
+
+function switchTab(tab) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
     
-    // Add active class to selected tab
-    document.getElementById(`tab-${tabName}`).classList.add('active');
-    document.getElementById(`content-${tabName}`).classList.add('active');
+    document.getElementById(`tab-${tab}`).classList.add('active');
+    document.getElementById(`content-${tab}`).classList.add('active');
 }
 
-// Render notes
-function renderNotes(notes) {
-    if (notes.length === 0) {
-        return '<p style="color: #999;">No notes for this session yet.</p>';
-    }
-    
-    return notes.map(note => {
-        let html = '<div class="note-item">';
-        
-        if (note.title) {
-            html += `<div class="note-title">${escapeHtml(note.title)}</div>`;
-        }
-        
-        if (note.pronunciation) {
-            html += `<div class="note-pronunciation">🔊 Pronunciation: <a href="${escapeHtml(note.pronunciation)}" target="_blank">Listen</a></div>`;
-        }
-        
-        if (note.definition) {
-            html += `<div class="note-definition">${escapeHtml(note.definition)}</div>`;
-        }
-        
-        if (note.examples && note.examples.length > 0) {
-            note.examples.forEach(example => {
-                html += `<div class="note-example">${escapeHtml(example)}</div>`;
-            });
-        }
-        
-        html += '</div>';
-        return html;
-    }).join('');
-}
-
-// Render exercises
-function renderExercises(exercises) {
-    if (exercises.length === 0) {
-        return '<p style="color: #999;">No exercises for this session yet.</p>';
-    }
-    
-    return exercises.map((exercise, index) => {
-        let html = `<div class="exercise-item" data-exercise-index="${index}">`;
-        html += `<div class="exercise-question">${escapeHtml(exercise.question)}</div>`;
-        
-        if (exercise.type === 'fill-blank') {
-            html += `<input type="text" class="exercise-input" data-answer="${escapeHtml(exercise.answer)}" placeholder="Type your answer...">`;
-            html += `<button class="check-btn" onclick="checkFillBlank(${index})">Check Answer</button>`;
-            html += `<div class="exercise-feedback"></div>`;
-        } else if (exercise.type === 'multiple-choice') {
-            html += '<div class="exercise-options">';
-            exercise.options.forEach((option, optIndex) => {
-                html += `<div class="exercise-option" data-option-index="${optIndex}" onclick="selectOption(${index}, ${optIndex})">${escapeHtml(option)}</div>`;
-            });
-            html += '</div>';
-            html += `<button class="check-btn" onclick="checkMultipleChoice(${index}, ${exercise.correctIndex})">Check Answer</button>`;
-            html += `<div class="exercise-feedback"></div>`;
-        } else if (exercise.type === 'text') {
-            html += `<div style="color: #555;">${escapeHtml(exercise.instructions)}</div>`;
-        }
-        
-        html += '</div>';
-        return html;
-    }).join('');
-}
-
-// Render links
-function renderLinks(links) {
-    if (links.length === 0) {
-        return '<p style="color: #999;">No links for this session yet.</p>';
-    }
-    
-    return links.map(link => `
-        <div class="link-item">
-            <a href="${escapeHtml(link.url)}" target="_blank">${escapeHtml(link.title)}</a>
-            <div class="link-description">${escapeHtml(link.description)}</div>
-        </div>
-    `).join('');
-}
-
-// Render comments section
-function renderCommentsSection(sessionId, section) {
-    const comments = getComments(sessionId, section);
-    
-    return `
-        <div class="comments-section">
-            <h4>💬 Comments</h4>
-            <div class="comment-form">
-                <input type="text" class="comment-input" placeholder="Your name" id="name-${sessionId}-${section}">
-                <textarea class="comment-input comment-textarea" placeholder="Write your comment..." id="comment-${sessionId}-${section}"></textarea>
-                <button class="submit-comment-btn" onclick="submitComment('${sessionId}', '${section}')">Post Comment</button>
-            </div>
-            <div class="comments-list" id="comments-${sessionId}-${section}">
-                ${renderComments(comments)}
-            </div>
-        </div>
-    `;
-}
-
-// Render comments
-function renderComments(comments) {
-    if (comments.length === 0) {
-        return '<p style="color: #999;">No comments yet. Be the first to comment!</p>';
-    }
-    
-    return comments.map(comment => `
-        <div class="comment">
-            <div class="comment-author">${escapeHtml(comment.author)}</div>
-            <div class="comment-text">${escapeHtml(comment.text)}</div>
-            <div class="comment-date">${new Date(comment.timestamp).toLocaleString()}</div>
-        </div>
-    `).join('');
-}
-
-// Get comments for a specific session and section
-function getComments(sessionId, section) {
-    const allComments = JSON.parse(localStorage.getItem('eslComments') || '{}');
-    const key = `${sessionId}-${section}`;
-    return allComments[key] || [];
-}
-
-// Submit a comment
-function submitComment(sessionId, section) {
-    const nameInput = document.getElementById(`name-${sessionId}-${section}`);
-    const commentInput = document.getElementById(`comment-${sessionId}-${section}`);
-    
-    const name = nameInput.value.trim();
-    const text = commentInput.value.trim();
-    
-    if (!name || !text) {
-        alert('Please enter both your name and comment.');
-        return;
-    }
-    
-    const allComments = JSON.parse(localStorage.getItem('eslComments') || '{}');
-    const key = `${sessionId}-${section}`;
-    
-    if (!allComments[key]) {
-        allComments[key] = [];
-    }
-    
-    allComments[key].push({
-        author: name,
-        text: text,
-        timestamp: new Date().toISOString()
-    });
-    
-    localStorage.setItem('eslComments', JSON.stringify(allComments));
-    
-    // Clear inputs
-    nameInput.value = '';
-    commentInput.value = '';
-    
-    // Refresh comments display
-    document.getElementById(`comments-${sessionId}-${section}`).innerHTML = renderComments(allComments[key]);
-}
-
-// Setup exercise interactions
-function setupExerciseInteractions(sessionId) {
-    // Already handled by onclick attributes
-}
-
-// Check fill-in-blank answer
 function checkFillBlank(index) {
     const exerciseItem = document.querySelectorAll('.exercise-item')[index];
     const input = exerciseItem.querySelector('.exercise-input');
@@ -473,7 +873,6 @@ function checkFillBlank(index) {
     }
 }
 
-// Select multiple choice option
 function selectOption(exerciseIndex, optionIndex) {
     const exerciseItem = document.querySelectorAll('.exercise-item')[exerciseIndex];
     const options = exerciseItem.querySelectorAll('.exercise-option');
@@ -482,7 +881,6 @@ function selectOption(exerciseIndex, optionIndex) {
     options[optionIndex].classList.add('selected');
 }
 
-// Check multiple choice answer
 function checkMultipleChoice(exerciseIndex, correctIndex) {
     const exerciseItem = document.querySelectorAll('.exercise-item')[exerciseIndex];
     const options = exerciseItem.querySelectorAll('.exercise-option');
@@ -518,7 +916,6 @@ function checkMultipleChoice(exerciseIndex, correctIndex) {
     }
 }
 
-// Close session and return to main view
 function closeSession() {
     console.log('Closing session');
     const detailView = document.querySelector('.session-detail');
@@ -529,10 +926,120 @@ function closeSession() {
     if (container) {
         container.style.display = 'grid';
     }
+    const searchSection = document.querySelector('.search-section');
+    if (searchSection) {
+        searchSection.style.display = 'block';
+    }
     currentSessionId = null;
 }
 
-// Show password modal
+// ============================================================================
+// COMMENTS SYSTEM WITH USER PROFILES
+// ============================================================================
+
+function renderCommentsSection(sessionId, section) {
+    const comments = getComments(sessionId, section);
+    
+    return `
+        <div class="comments-container">
+            <div class="comment-form">
+                <h4>💬 Comments</h4>
+                ${currentUser ? `
+                    <textarea id="comment-${sessionId}-${section}" class="comment-input" placeholder="Share your thoughts..." rows="3"></textarea>
+                    <button class="comment-submit" onclick="submitComment('${sessionId}', '${section}')">Post Comment</button>
+                ` : `
+                    <p style="color: var(--text-muted); text-align: center; padding: 20px;">
+                        <a href="#" onclick="event.preventDefault(); showAuthModal();" style="color: var(--accent-brown); text-decoration: none;">Login</a> to post comments
+                    </p>
+                `}
+            </div>
+            
+            ${comments.length > 0 ? `
+                <div class="comments-list">
+                    ${renderComments(comments)}
+                </div>
+            ` : ''}
+        </div>
+    `;
+}
+
+function renderComments(comments) {
+    return comments.map(comment => `
+        <div class="comment">
+            <div class="comment-header">
+                <span class="comment-author">👤 ${escapeHtml(comment.author)}</span>
+                <span class="comment-date">${new Date(comment.timestamp).toLocaleString()}</span>
+            </div>
+            <div class="comment-text">${escapeHtml(comment.text)}</div>
+        </div>
+    `).join('');
+}
+
+async function getComments(sessionId, section) {
+    try {
+        const commentsRef = window.firebaseRef(window.firebaseDB, `comments/${sessionId}/${section}`);
+        const snapshot = await window.firebaseGet(commentsRef);
+        
+        if (snapshot.exists()) {
+            const commentsObj = snapshot.val();
+            return Object.values(commentsObj).sort((a, b) => b.timestamp - a.timestamp);
+        }
+    } catch (error) {
+        console.error('Error loading comments:', error);
+    }
+    return [];
+}
+
+async function submitComment(sessionId, section) {
+    if (!currentUser) {
+        showAuthModal();
+        return;
+    }
+    
+    const commentInput = document.getElementById(`comment-${sessionId}-${section}`);
+    const text = commentInput.value.trim();
+    
+    if (!text) {
+        alert('Please enter a comment.');
+        return;
+    }
+    
+    try {
+        const commentsRef = window.firebaseRef(window.firebaseDB, `comments/${sessionId}/${section}`);
+        const newCommentRef = window.firebasePush(commentsRef);
+        
+        await window.firebaseSet(newCommentRef, {
+            author: currentUser.displayName,
+            authorId: currentUser.uid,
+            text: text,
+            timestamp: Date.now()
+        });
+        
+        commentInput.value = '';
+        
+        // Reload comments
+        const comments = await getComments(sessionId, section);
+        const commentsList = document.querySelector(`#content-${section} .comments-list`);
+        if (commentsList) {
+            commentsList.innerHTML = renderComments(comments);
+        } else {
+            // Create comments list if it doesn't exist
+            const commentsContainer = document.querySelector(`#content-${section} .comments-container`);
+            const newList = document.createElement('div');
+            newList.className = 'comments-list';
+            newList.innerHTML = renderComments(comments);
+            commentsContainer.appendChild(newList);
+        }
+    } catch (error) {
+        console.error('Error posting comment:', error);
+        alert('Error posting comment. Please try again.');
+    }
+}
+
+// ============================================================================
+// ADMIN PANEL
+// ============================================================================
+
 function showPasswordModal() {
     const modal = document.createElement('div');
     modal.className = 'password-modal active';
@@ -549,31 +1056,27 @@ function showPasswordModal() {
     `;
     document.body.appendChild(modal);
     
-    // Allow Enter key to submit
     document.getElementById('adminPassword').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
             checkPassword();
         }
     });
     
-    // Focus password input
     setTimeout(() => document.getElementById('adminPassword').focus(), 100);
 }
 
-// Close password modal
 function closePasswordModal() {
     const modal = document.querySelector('.password-modal');
     if (modal) modal.remove();
 }
 
-// Check password
 function checkPassword() {
     const input = document.getElementById('adminPassword');
     const error = document.getElementById('passwordError');
     
     if (input.value === ADMIN_PASSWORD) {
-        saveAdminSession(); // Save login session
-        updateAdminButton(); // Update button to show logged in state
+        saveAdminSession();
+        updateAdminButton();
         closePasswordModal();
         openAdmin();
     } else {
@@ -583,13 +1086,11 @@ function checkPassword() {
     }
 }
 
-// Open admin panel
 function openAdmin() {
     const adminPanel = createAdminPanel();
     document.body.appendChild(adminPanel);
 }
 
-// Create admin panel
 function createAdminPanel() {
     const panel = document.createElement('div');
     panel.className = 'admin-panel active';
@@ -600,7 +1101,7 @@ function createAdminPanel() {
             <div class="admin-header">
                 <h2>Admin Panel</h2>
                 <div style="display: flex; gap: 12px;">
-                    <button class="logout-btn" onclick="logoutAdmin(); closeAdmin(); updateAdminButton();" style="background: #8b7355; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer;">Logout</button>
+                    <button class="logout-btn" onclick="logoutAdmin(); closeAdmin(); updateAdminButton();">Logout</button>
                     <button class="close-admin-btn" onclick="closeAdmin()">Close</button>
                 </div>
             </div>
@@ -610,7 +1111,7 @@ function createAdminPanel() {
                 <p style="color: #666; margin: 0;">Sessions are saved instantly to the cloud. Students see updates in real-time!</p>
             </div>
             
-            <h3 style="color: #1a1a1a; margin-top: 30px; margin-bottom: 20px;">Add New Session</h3>
+            <h3 style="color: var(--text-primary); margin-top: 30px; margin-bottom: 20px;">Add New Session</h3>
             
             <form class="admin-form" onsubmit="saveNewSession(event)">
                 <div class="form-group">
@@ -631,11 +1132,6 @@ How did you end up here?
 TAKE A CHILL PILL
 (slang) relax, calm down
 You need to take a chill pill!
-====
-NEXT WORD
-definition here
-example 1
-example 2
 ====</code>
                         <br>
                         <strong>Format:</strong><br>
@@ -672,7 +1168,7 @@ example
             </form>
             
             <div class="sessions-list">
-                <h3 style="color: #1a1a1a; margin-bottom: 20px;">Existing Sessions</h3>
+                <h3 style="color: var(--text-primary); margin-bottom: 20px;">Existing Sessions</h3>
                 ${renderSessionsList()}
             </div>
         </div>
@@ -681,7 +1177,6 @@ example
     return panel;
 }
 
-// Render list of existing sessions in admin
 function renderSessionsList() {
     if (sessions.length === 0) {
         return '<p style="color: #999;">No sessions yet.</p>';
@@ -691,7 +1186,7 @@ function renderSessionsList() {
         <div class="session-list-item">
             <div>
                 <h4>${formatDate(session.date)}</h4>
-                <p style="color: #666;">${session.notes?.length || 0} notes • ${session.exercises?.length || 0} exercises • ${session.links?.length || 0} links</p>
+                <p style="color: var(--text-muted);">${session.notes?.length || 0} notes • ${session.exercises?.length || 0} exercises • ${session.links?.length || 0} links</p>
             </div>
             <div style="display: flex; gap: 12px;">
                 <button class="edit-session-btn" onclick="editSession('${session.id}')">Edit</button>
@@ -701,14 +1196,21 @@ function renderSessionsList() {
     `).join('');
 }
 
-// Edit session
+function closeAdmin() {
+    const panel = document.getElementById('adminPanel');
+    if (panel) panel.remove();
+}
+
+// ============================================================================
+// EDIT SESSION
+// ============================================================================
+
 function editSession(sessionId) {
     const session = sessions.find(s => s.id === sessionId);
     if (!session) return;
     
     editingSessionId = sessionId;
     
-    // Populate form fields
     document.getElementById('sessionDate').value = session.date;
     
     // Convert notes back to text format
@@ -752,6 +1254,21 @@ function editSession(sessionId) {
                     lastExercise.querySelector('[data-field="question"]').value = exercise.question || '';
                     lastExercise.querySelector('[data-field="instructions"]').value = exercise.instructions || '';
                 }
+                
+                // Populate exercise links
+                if (exercise.links && exercise.links.length > 0) {
+                    const linksContainer = lastExercise.querySelector('.exercise-links-container');
+                    if (linksContainer) {
+                        exercise.links.forEach(link => {
+                            addExerciseLinkField(lastExercise.id);
+                            const linkFields = linksContainer.querySelectorAll('.exercise-link-item');
+                            const lastLinkField = linkFields[linkFields.length - 1];
+                            lastLinkField.querySelector('[data-field="link-title"]').value = link.title || '';
+                            lastLinkField.querySelector('[data-field="link-url"]').value = link.url || '';
+                            lastLinkField.querySelector('[data-field="link-desc"]').value = link.description || '';
+                        });
+                    }
+                }
             }, 100);
         });
     }
@@ -771,78 +1288,14 @@ function editSession(sessionId) {
         });
     }
     
-    // Change button text
     document.querySelector('.save-session-btn').textContent = 'Update Session';
-    
-    // Scroll to top of form
     document.querySelector('.admin-form').scrollIntoView({ behavior: 'smooth' });
 }
-function parseNotes(notesText) {
-    if (!notesText || !notesText.trim()) return [];
-    
-    const notes = [];
-    
-    // Split by ==== to separate different notes
-    const noteBlocks = notesText.split('====').map(block => block.trim()).filter(block => block);
-    
-    console.log('Parsing notes, found blocks:', noteBlocks.length);
-    
-    noteBlocks.forEach((block, blockIndex) => {
-        console.log(`Processing block ${blockIndex}:`, block);
-        
-        const lines = block.split('\n').map(l => l.trim()).filter(l => l);
-        if (lines.length === 0) return;
-        
-        const note = {
-            title: '',
-            pronunciation: '',
-            definition: '',
-            examples: []
-        };
-        
-        // First line is always the title
-        note.title = lines[0];
-        
-        // Process remaining lines
-        let definitionSet = false;
-        for (let i = 1; i < lines.length; i++) {
-            const line = lines[i];
-            
-            // Check for pronunciation link
-            if (line.includes('🔊') || line.includes('🗣') || line.includes('🔤') || 
-                line.toLowerCase().includes('pronunciation:')) {
-                const match = line.match(/https?:\/\/[^\s]+/);
-                if (match) {
-                    note.pronunciation = match[0];
-                }
-                // Don't skip this line, it might be part of the title
-                if (!definitionSet) {
-                    note.definition = line;
-                    definitionSet = true;
-                }
-                continue;
-            }
-            
-            // If this is the first content line after title, it's the definition
-            if (!definitionSet) {
-                note.definition = line;
-                definitionSet = true;
-            }
-            // Everything else is examples
-            else {
-                note.examples.push(line);
-            }
-        }
-        
-        console.log('Adding note:', note);
-        notes.push(note);
-    });
-    
-    console.log('Total notes parsed:', notes.length);
-    return notes;
-}
 
-// Add exercise fields
+// ============================================================================
+// ADD EXERCISE AND LINK FIELDS
+// ============================================================================
+
 let exerciseCounter = 0;
 function addExerciseFields() {
     const container = document.getElementById('exercisesContainer');
@@ -859,13 +1312,14 @@ function addExerciseFields() {
             <option value="text">Text Instructions</option>
         </select>
         <div class="exercise-specific-fields"></div>
+        <div class="exercise-links-container"></div>
+        <button type="button" class="add-item-btn" onclick="addExerciseLinkField('${exerciseId}')" style="margin-top: 10px;">+ Add Link to Exercise</button>
         <button type="button" class="remove-item-btn" onclick="document.getElementById('${exerciseId}').remove()">Remove Exercise</button>
     `;
     
     container.appendChild(exerciseDiv);
 }
 
-// Update exercise fields based on type
 function updateExerciseFields(exerciseId) {
     const exerciseDiv = document.getElementById(exerciseId);
     const typeSelect = exerciseDiv.querySelector('[data-field="type"]');
@@ -896,7 +1350,27 @@ Option 3</small>
     }
 }
 
-// Add link fields
+let exerciseLinkCounter = 0;
+function addExerciseLinkField(exerciseId) {
+    const exerciseDiv = document.getElementById(exerciseId);
+    const linksContainer = exerciseDiv.querySelector('.exercise-links-container');
+    const linkId = `exercise-link-${exerciseLinkCounter++}`;
+    
+    const linkDiv = document.createElement('div');
+    linkDiv.className = 'exercise-link-item';
+    linkDiv.id = linkId;
+    linkDiv.style.cssText = 'background: var(--bg-tertiary); padding: 12px; margin-top: 10px; border-radius: 8px; border-left: 3px solid var(--border-gold);';
+    linkDiv.innerHTML = `
+        <p style="color: var(--text-primary); font-weight: 600; margin-bottom: 8px;">📎 Exercise Link:</p>
+        <input type="text" placeholder="Link Title" class="comment-input" style="margin-bottom: 8px;" data-field="link-title">
+        <input type="url" placeholder="URL" class="comment-input" style="margin-bottom: 8px;" data-field="link-url">
+        <input type="text" placeholder="Description (optional)" class="comment-input" style="margin-bottom: 8px;" data-field="link-desc">
+        <button type="button" class="remove-item-btn" onclick="document.getElementById('${linkId}').remove()">Remove Link</button>
+    `;
+    
+    linksContainer.appendChild(linkDiv);
+}
+
 let linkCounter = 0;
 function addLinkFields() {
     const container = document.getElementById('linksContainer');
@@ -915,7 +1389,10 @@ function addLinkFields() {
     container.appendChild(linkDiv);
 }
 
-// Save new session
+// ============================================================================
+// SAVE SESSION
+// ============================================================================
+
 async function saveNewSession(event) {
     event.preventDefault();
     
@@ -958,6 +1435,22 @@ async function saveNewSession(event) {
         } else if (type === 'text') {
             exercise.question = exerciseDiv.querySelector('[data-field="question"]').value.trim();
             exercise.instructions = exerciseDiv.querySelector('[data-field="instructions"]').value.trim();
+        }
+        
+        // Collect exercise links
+        const exerciseLinks = [];
+        exerciseDiv.querySelectorAll('.exercise-link-item').forEach(linkDiv => {
+            const title = linkDiv.querySelector('[data-field="link-title"]').value.trim();
+            const url = linkDiv.querySelector('[data-field="link-url"]').value.trim();
+            const description = linkDiv.querySelector('[data-field="link-desc"]').value.trim();
+            
+            if (title && url) {
+                exerciseLinks.push({ title, url, description });
+            }
+        });
+        
+        if (exerciseLinks.length > 0) {
+            exercise.links = exerciseLinks;
         }
         
         if (exercise.question) {
@@ -1018,7 +1511,92 @@ async function saveNewSession(event) {
     }
 }
 
-// Show success message
+// ============================================================================
+// NOTE PARSING
+// ============================================================================
+
+function parseNotes(notesText) {
+    if (!notesText || !notesText.trim()) return [];
+    
+    const notes = [];
+    
+    // Split by ==== to separate different notes
+    const noteBlocks = notesText.split('====').map(block => block.trim()).filter(block => block);
+    
+    console.log('Parsing notes, found blocks:', noteBlocks.length);
+    
+    noteBlocks.forEach((block, blockIndex) => {
+        console.log(`Processing block ${blockIndex}:`, block);
+        
+        const lines = block.split('\n').map(l => l.trim()).filter(l => l);
+        if (lines.length === 0) return;
+        
+        const note = {
+            title: '',
+            pronunciation: '',
+            definition: '',
+            examples: []
+        };
+        
+        // First line is always the title
+        note.title = lines[0];
+        
+        // Process remaining lines
+        let definitionSet = false;
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i];
+            
+            // Check for pronunciation link
+            if (line.includes('🔊') || line.includes('🗣') || line.includes('🔤') || 
+                line.toLowerCase().includes('pronunciation:')) {
+                const match = line.match(/https?:\/\/[^\s]+/);
+                if (match) {
+                    note.pronunciation = match[0];
+                }
+                continue;
+            }
+            
+            // If this is the first content line after title, it's the definition
+            if (!definitionSet) {
+                note.definition = line;
+                definitionSet = true;
+            }
+            // Everything else is examples
+            else {
+                note.examples.push(line);
+            }
+        }
+        
+        console.log('Adding note:', note);
+        notes.push(note);
+    });
+    
+    console.log('Total notes parsed:', notes.length);
+    return notes;
+}
+
+// ============================================================================
+// DELETE SESSION
+// ============================================================================
+
+async function deleteSession(sessionId) {
+    if (!confirm('Are you sure you want to delete this session?')) return;
+    
+    const deleted = await deleteSessionFromFirebase(sessionId);
+    
+    if (deleted) {
+        sessions = sessions.filter(s => s.id !== sessionId);
+        closeAdmin();
+        openAdmin();
+    } else {
+        alert('Error deleting session. Please try again.');
+    }
+}
+
+// ============================================================================
+// SUCCESS MESSAGE
+// ============================================================================
+
 function showSuccessMessage() {
     const message = document.createElement('div');
     message.style.cssText = `
@@ -1026,21 +1604,21 @@ function showSuccessMessage() {
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        background: white;
-        border: 3px solid #d4af37;
+        background: var(--bg-secondary);
+        border: 3px solid var(--border-gold);
         border-radius: 16px;
         padding: 32px;
         max-width: 400px;
         width: 90%;
         z-index: 3000;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        box-shadow: 0 8px 32px var(--shadow-medium);
         text-align: center;
     `;
     
     message.innerHTML = `
         <div style="font-size: 3rem; margin-bottom: 16px;">✅</div>
-        <h3 style="color: #1a1a1a; margin-bottom: 12px; font-size: 1.5rem;">Session Saved!</h3>
-        <p style="color: #666; margin-bottom: 24px;">Your session is now live and visible to all students instantly!</p>
+        <h3 style="color: var(--text-primary); margin-bottom: 12px; font-size: 1.5rem;">Session Saved!</h3>
+        <p style="color: var(--text-muted); margin-bottom: 24px;">Your session is now live and visible to all students instantly!</p>
         <button onclick="
             this.parentElement.parentElement.remove();
             document.getElementById('adminPanel')?.remove();
@@ -1051,7 +1629,11 @@ function showSuccessMessage() {
             if (container) {
                 container.style.display = 'grid';
             }
-        " style="background: #1a1a1a; color: #f4e157; border: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 1rem;">
+            const searchSection = document.querySelector('.search-section');
+            if (searchSection) {
+                searchSection.style.display = 'block';
+            }
+        " style="background: var(--accent-dark); color: var(--accent-light); border: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 1rem;">
             Done
         </button>
     `;
@@ -1078,40 +1660,24 @@ function showSuccessMessage() {
         if (container) {
             container.style.display = 'grid';
         }
+        const searchSection = document.querySelector('.search-section');
+        if (searchSection) {
+            searchSection.style.display = 'block';
+        }
     };
     document.body.insertBefore(backdrop, message);
 }
 
-// Delete session
-async function deleteSession(sessionId) {
-    if (!confirm('Are you sure you want to delete this session?')) return;
-    
-    const deleted = await deleteSessionFromFirebase(sessionId);
-    
-    if (deleted) {
-        sessions = sessions.filter(s => s.id !== sessionId);
-        
-        // Refresh admin panel
-        closeAdmin();
-        openAdmin();
-    } else {
-        alert('Error deleting session. Please try again.');
-    }
-}
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
 
-// Close admin panel
-function closeAdmin() {
-    const panel = document.getElementById('adminPanel');
-    if (panel) panel.remove();
-}
-
-// Generate unique ID
 function generateId() {
     return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
-// Escape HTML to prevent XSS
 function escapeHtml(text) {
+    if (!text) return '';
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;

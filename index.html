@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,9 +9,30 @@
 <body>
     <div class="container">
         <header>
-            <h1>Grish English Speaking Club</h1>
-            <button id="adminBtn" class="admin-btn">Admin</button>
+            <div class="header-left">
+                <h1>Grish English Speaking Club</h1>
+            </div>
+            <div class="header-right">
+                <button id="themeToggle" class="theme-toggle" title="Toggle dark mode">
+                    🌙
+                </button>
+                <button id="userBtn" class="user-btn" style="display: none;">
+                    <span class="user-icon">👤</span>
+                    <span id="userName"></span>
+                </button>
+                <button id="loginBtn" class="login-btn">Login / Sign Up</button>
+                <button id="adminBtn" class="admin-btn">Admin</button>
+            </div>
         </header>
+
+        <!-- Search Bar -->
+        <div class="search-section">
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="🔍 Search vocabulary, definitions, examples..." />
+                <button id="clearSearch" class="clear-search" style="display: none;">✕</button>
+            </div>
+            <div id="searchResults" class="search-results"></div>
+        </div>
         
         <main id="sessionsContainer">
             <!-- Session boxes will be dynamically loaded here -->
@@ -21,7 +42,8 @@
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getDatabase, ref, set, get, remove, onValue } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+        import { getDatabase, ref, set, get, remove, onValue, push, update } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
         const firebaseConfig = {
             apiKey: "AIzaSyDiFE_5hEM1_ggNhY1khk1V-btb5s-L99c",
@@ -35,6 +57,7 @@
 
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
+        const auth = getAuth(app);
         
         // Make Firebase available globally
         window.firebaseDB = database;
@@ -43,6 +66,14 @@
         window.firebaseGet = get;
         window.firebaseRemove = remove;
         window.firebaseOnValue = onValue;
+        window.firebasePush = push;
+        window.firebaseUpdate = update;
+        window.firebaseAuth = auth;
+        window.firebaseCreateUser = createUserWithEmailAndPassword;
+        window.firebaseSignIn = signInWithEmailAndPassword;
+        window.firebaseSignOut = signOut;
+        window.firebaseAuthState = onAuthStateChanged;
+        window.firebaseUpdateProfile = updateProfile;
     </script>
     <script src="script.js"></script>
 </body>
