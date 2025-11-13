@@ -1,33 +1,84 @@
 // Data structure and state management
 let sessions = [];
 let currentSessionId = null;
+let firebaseReady = false;
 
 // Admin password (change this to your own password)
-const ADMIN_PASSWORD = "gagagrigri25"; // Change this password!
+const ADMIN_PASSWORD = "esl2025"; // Change this password!
 
-// Initialize the app
-document.addEventListener('DOMContentLoaded', () => {
-    loadData();
-    setupEventListeners();
-    displaySessions();
-});
-
-// Load data from localStorage or initialize empty
-function loadData() {
-    const storedSessions = localStorage.getItem('eslSessions');
-    const storedComments = localStorage.getItem('eslComments');
-    
-    if (storedSessions) {
-        sessions = JSON.parse(storedSessions);
-    }
-    
-    // Sort sessions by date (newest first)
-    sessions.sort((a, b) => new Date(b.date) - new Date(a.date));
+// Wait for Firebase to be ready
+function waitForFirebase() {
+    return new Promise((resolve) => {
+        const checkFirebase = () => {
+            if (window.firebaseDB) {
+                firebaseReady = true;
+                resolve();
+            } else {
+                setTimeout(checkFirebase, 100);
+            }
+        };
+        checkFirebase();
+    });
 }
 
-// Save sessions to localStorage
-function saveData() {
-    localStorage.setItem('eslSessions', JSON.stringify(sessions));
+// Initialize the app
+document.addEventListener('DOMContentLoaded', async () => {
+    await waitForFirebase();
+    setupEventListeners();
+    loadSessions();
+});
+
+// Load sessions from Firebase
+async function loadSessions() {
+    try {
+        const sessionsRef = window.firebaseRef(window.firebaseDB, 'sessions');
+        
+        // Listen for real-time updates
+        window.firebaseOnValue(sessionsRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                sessions = Object.values(data);
+            } else {
+                sessions = [];
+            }
+            
+            // Sort sessions by date (newest first)
+            sessions.sort((a, b) => new Date(b.date) - new Date(a.date));
+            displaySessions();
+        });
+    } catch (error) {
+        console.error('Error loading sessions:', error);
+        displaySessions(); // Show empty state
+    }
+}
+
+// Save all sessions to Firebase
+async function saveSessions() {
+    try {
+        const sessionsRef = window.firebaseRef(window.firebaseDB, 'sessions');
+        const sessionsObj = {};
+        sessions.forEach(session => {
+            sessionsObj[session.id] = session;
+        });
+        await window.firebaseSet(sessionsRef, sessionsObj);
+        return true;
+    } catch (error) {
+        console.error('Error saving sessions:', error);
+        alert('Error saving to database. Please try again.');
+        return false;
+    }
+}
+
+// Delete a session from Firebase
+async function deleteSessionFromFirebase(sessionId) {
+    try {
+        const sessionRef = window.firebaseRef(window.firebaseDB, `sessions/${sessionId}`);
+        await window.firebaseRemove(sessionRef);
+        return true;
+    } catch (error) {
+        console.error('Error deleting session:', error);
+        return false;
+    }
 }
 
 // Setup event listeners
@@ -139,7 +190,7 @@ function createSessionDetailView(session) {
 // Render notes
 function renderNotes(notes) {
     if (notes.length === 0) {
-        return '<p style="color: #777;">No notes for this session yet.</p>';
+        return '<p style="color: #999;">No notes for this session yet.</p>';
     }
     
     return notes.map(note => {
@@ -159,7 +210,7 @@ function renderNotes(notes) {
         
         if (note.examples && note.examples.length > 0) {
             note.examples.forEach(example => {
-                html += `<div class="note-example">• ${escapeHtml(example)}</div>`;
+                html += `<div class="note-example">${escapeHtml(example)}</div>`;
             });
         }
         
@@ -171,7 +222,7 @@ function renderNotes(notes) {
 // Render exercises
 function renderExercises(exercises) {
     if (exercises.length === 0) {
-        return '<p style="color: #777;">No exercises for this session yet.</p>';
+        return '<p style="color: #999;">No exercises for this session yet.</p>';
     }
     
     return exercises.map((exercise, index) => {
@@ -191,7 +242,7 @@ function renderExercises(exercises) {
             html += `<button class="check-btn" onclick="checkMultipleChoice(${index}, ${exercise.correctIndex})">Check Answer</button>`;
             html += `<div class="exercise-feedback"></div>`;
         } else if (exercise.type === 'text') {
-            html += `<div style="color: #ccc;">${escapeHtml(exercise.instructions)}</div>`;
+            html += `<div style="color: #555;">${escapeHtml(exercise.instructions)}</div>`;
         }
         
         html += '</div>';
@@ -202,7 +253,7 @@ function renderExercises(exercises) {
 // Render links
 function renderLinks(links) {
     if (links.length === 0) {
-        return '<p style="color: #777;">No links for this session yet.</p>';
+        return '<p style="color: #999;">No links for this session yet.</p>';
     }
     
     return links.map(link => `
@@ -235,7 +286,7 @@ function renderCommentsSection(sessionId, section) {
 // Render comments
 function renderComments(comments) {
     if (comments.length === 0) {
-        return '<p style="color: #777;">No comments yet. Be the first to comment!</p>';
+        return '<p style="color: #999;">No comments yet. Be the first to comment!</p>';
     }
     
     return comments.map(comment => `
@@ -306,11 +357,11 @@ function checkFillBlank(index) {
     if (userAnswer === correctAnswer) {
         feedback.textContent = '✓ Correct!';
         feedback.className = 'exercise-feedback correct';
-        input.style.borderColor = '#00ff00';
+        input.style.borderColor = '#4caf50';
     } else {
         feedback.textContent = `✗ Incorrect. The answer is: ${input.dataset.answer}`;
         feedback.className = 'exercise-feedback incorrect';
-        input.style.borderColor = '#ff6666';
+        input.style.borderColor = '#e57373';
     }
 }
 
@@ -434,13 +485,12 @@ function createAdminPanel() {
                 <button class="close-admin-btn" onclick="closeAdmin()">Close</button>
             </div>
             
-            <div class="admin-actions">
-                <button class="export-btn" onclick="exportData()">Export Data (JSON)</button>
-                <button class="import-btn" onclick="document.getElementById('importFile').click()">Import Data</button>
-                <input type="file" id="importFile" style="display: none" accept=".json" onchange="importData(event)">
+            <div style="background: #fffcf0; border: 2px solid #d4af37; border-radius: 12px; padding: 16px; margin-bottom: 30px;">
+                <h4 style="color: #1a1a1a; margin-bottom: 8px;">✨ Firebase Connected!</h4>
+                <p style="color: #666; margin: 0;">Sessions are saved instantly to the cloud. Students see updates in real-time!</p>
             </div>
             
-            <h3 style="color: #ffed00; margin-top: 30px; margin-bottom: 20px;">Add New Session</h3>
+            <h3 style="color: #1a1a1a; margin-top: 30px; margin-bottom: 20px;">Add New Session</h3>
             
             <form class="admin-form" onsubmit="saveNewSession(event)">
                 <div class="form-group">
@@ -478,11 +528,11 @@ function createAdminPanel() {
                     <button type="button" class="add-item-btn" onclick="addLinkFields()">+ Add Link</button>
                 </div>
                 
-                <button type="submit" class="save-session-btn">Save Session</button>
+                <button type="submit" class="save-session-btn">Save Session to Cloud</button>
             </form>
             
             <div class="sessions-list">
-                <h3 style="color: #ffed00; margin-bottom: 20px;">Existing Sessions</h3>
+                <h3 style="color: #1a1a1a; margin-bottom: 20px;">Existing Sessions</h3>
                 ${renderSessionsList()}
             </div>
         </div>
@@ -494,14 +544,14 @@ function createAdminPanel() {
 // Render list of existing sessions in admin
 function renderSessionsList() {
     if (sessions.length === 0) {
-        return '<p style="color: #777;">No sessions yet.</p>';
+        return '<p style="color: #999;">No sessions yet.</p>';
     }
     
     return sessions.map(session => `
         <div class="session-list-item">
             <div>
                 <h4>${formatDate(session.date)}</h4>
-                <p style="color: #ccc;">${session.notes?.length || 0} notes • ${session.exercises?.length || 0} exercises • ${session.links?.length || 0} links</p>
+                <p style="color: #666;">${session.notes?.length || 0} notes • ${session.exercises?.length || 0} exercises • ${session.links?.length || 0} links</p>
             </div>
             <button class="delete-session-btn" onclick="deleteSession('${session.id}')">Delete</button>
         </div>
@@ -618,7 +668,7 @@ function updateExerciseFields(exerciseId) {
         specificFields.innerHTML = `
             <input type="text" placeholder="Question" class="comment-input" style="margin-bottom: 10px;" data-field="question" required>
             <textarea placeholder="Options (one per line, mark correct answer with *)" class="comment-input" style="margin-bottom: 10px;" data-field="options" required></textarea>
-            <small style="color: #ffed00;">Example: Option 1
+            <small style="color: #8b7355;">Example: Option 1
 *Correct Option
 Option 3</small>
         `;
@@ -652,7 +702,7 @@ function addLinkFields() {
 }
 
 // Save new session
-function saveNewSession(event) {
+async function saveNewSession(event) {
     event.preventDefault();
     
     const date = document.getElementById('sessionDate').value;
@@ -722,16 +772,19 @@ function saveNewSession(event) {
     
     sessions.push(session);
     sessions.sort((a, b) => new Date(b.date) - new Date(a.date));
-    saveData();
     
-    // Show success message with export reminder
-    showSaveReminder();
+    // Save to Firebase
+    const saved = await saveSessions();
+    
+    if (saved) {
+        showSuccessMessage();
+    }
 }
 
-// Show save reminder modal
-function showSaveReminder() {
-    const reminder = document.createElement('div');
-    reminder.style.cssText = `
+// Show success message
+function showSuccessMessage() {
+    const message = document.createElement('div');
+    message.style.cssText = `
         position: fixed;
         top: 50%;
         left: 50%;
@@ -740,35 +793,23 @@ function showSaveReminder() {
         border: 3px solid #d4af37;
         border-radius: 16px;
         padding: 32px;
-        max-width: 500px;
+        max-width: 400px;
         width: 90%;
         z-index: 3000;
         box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        text-align: center;
     `;
     
-    reminder.innerHTML = `
-        <div style="text-align: center;">
-            <h3 style="color: #1a1a1a; margin-bottom: 16px; font-size: 1.5rem;">✅ Session Saved!</h3>
-            <div class="save-reminder">
-                <h4>⚠️ Important: Export Your Data</h4>
-                <p>Your session is saved to this browser only. To make it permanent and visible to students:</p>
-                <p><strong>1.</strong> Click "Export Data" button below</p>
-                <p><strong>2.</strong> Upload the JSON file to your GitHub repository</p>
-                <p><strong>3.</strong> Replace the old data.json file</p>
-                <p style="margin-bottom: 0;"><strong>Without this step, students won't see the new session!</strong></p>
-            </div>
-            <div style="margin-top: 24px; display: flex; gap: 12px;">
-                <button onclick="exportData(); this.parentElement.parentElement.parentElement.remove();" style="flex: 1; background: #1a1a1a; color: #f4e157; border: none; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer;">
-                    Export Data Now
-                </button>
-                <button onclick="this.parentElement.parentElement.parentElement.remove(); closeAdmin(); displaySessions();" style="flex: 1; background: #f5f5f5; color: #666; border: 2px solid #e0e0e0; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer;">
-                    I'll Do It Later
-                </button>
-            </div>
-        </div>
+    message.innerHTML = `
+        <div style="font-size: 3rem; margin-bottom: 16px;">✅</div>
+        <h3 style="color: #1a1a1a; margin-bottom: 12px; font-size: 1.5rem;">Session Saved!</h3>
+        <p style="color: #666; margin-bottom: 24px;">Your session is now live and visible to all students instantly!</p>
+        <button onclick="this.parentElement.parentElement.remove(); closeAdmin(); displaySessions();" style="background: #1a1a1a; color: #f4e157; border: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 1rem;">
+            Done
+        </button>
     `;
     
-    document.body.appendChild(reminder);
+    document.body.appendChild(message);
     
     // Add backdrop
     const backdrop = document.createElement('div');
@@ -783,71 +824,34 @@ function showSaveReminder() {
     `;
     backdrop.onclick = () => {
         backdrop.remove();
-        reminder.remove();
+        message.remove();
         closeAdmin();
         displaySessions();
     };
-    document.body.insertBefore(backdrop, reminder);
+    document.body.insertBefore(backdrop, message);
 }
 
 // Delete session
-function deleteSession(sessionId) {
+async function deleteSession(sessionId) {
     if (!confirm('Are you sure you want to delete this session?')) return;
     
-    sessions = sessions.filter(s => s.id !== sessionId);
-    saveData();
+    const deleted = await deleteSessionFromFirebase(sessionId);
     
-    // Refresh admin panel
-    closeAdmin();
-    openAdmin();
+    if (deleted) {
+        sessions = sessions.filter(s => s.id !== sessionId);
+        
+        // Refresh admin panel
+        closeAdmin();
+        openAdmin();
+    } else {
+        alert('Error deleting session. Please try again.');
+    }
 }
 
 // Close admin panel
 function closeAdmin() {
     const panel = document.getElementById('adminPanel');
     if (panel) panel.remove();
-}
-
-// Export data as JSON
-function exportData() {
-    const dataStr = JSON.stringify({ sessions, comments: JSON.parse(localStorage.getItem('eslComments') || '{}') }, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `esl-club-data-${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-}
-
-// Import data from JSON
-function importData(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        try {
-            const data = JSON.parse(e.target.result);
-            
-            if (data.sessions) {
-                sessions = data.sessions;
-                saveData();
-            }
-            
-            if (data.comments) {
-                localStorage.setItem('eslComments', JSON.stringify(data.comments));
-            }
-            
-            alert('Data imported successfully!');
-            closeAdmin();
-            displaySessions();
-        } catch (error) {
-            alert('Error importing data. Please check the file format.');
-            console.error(error);
-        }
-    };
-    reader.readAsText(file);
 }
 
 // Generate unique ID

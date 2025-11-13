@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESL Speaking Club</title>
+    <title>Grish English Speaking Club</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>ESL Speaking Club</h1>
+            <h1>Grish English Speaking Club</h1>
             <button id="adminBtn" class="admin-btn">Admin</button>
         </header>
         
@@ -18,6 +18,32 @@
         </main>
     </div>
 
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, set, get, remove, onValue } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDiFE_5hEM1_ggNhY1khk1V-btb5s-L99c",
+            authDomain: "grish-english-speaking-club.firebaseapp.com",
+            databaseURL: "https://grish-english-speaking-club-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "grish-english-speaking-club",
+            storageBucket: "grish-english-speaking-club.firebasestorage.app",
+            messagingSenderId: "715592775263",
+            appId: "1:715592775263:web:c54c3136cef98b30620dea"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        
+        // Make Firebase available globally
+        window.firebaseDB = database;
+        window.firebaseRef = ref;
+        window.firebaseSet = set;
+        window.firebaseGet = get;
+        window.firebaseRemove = remove;
+        window.firebaseOnValue = onValue;
+    </script>
     <script src="script.js"></script>
 </body>
 </html>
