@@ -322,8 +322,8 @@ function searchSessions(query) {
     
     sessions.forEach(session => {
         if (session.notes) {
-            session.notes.forEach(note => {
-                const searchText = `${note.title} ${note.definition} ${note.examples.join(' ')}`.toLowerCase();
+            (session.notes || []).forEach(note => {
+                const searchText = `${note.title} ${note.definition} ${(note.examples || []).join(' ')}`.toLowerCase();
                 if (searchText.includes(lowerQuery)) {
                     results.push({
                         sessionId: session.id,
@@ -403,7 +403,7 @@ function toggleFavorite(sessionId, noteTitle) {
         favorites.splice(index, 1);
     } else {
         const session = sessions.find(s => s.id === sessionId);
-        const note = session.notes.find(n => n.title === noteTitle);
+        const note = (session.notes || []).find(n => n.title === noteTitle);
         
         favorites.push({
             id: favoriteId,
