@@ -472,7 +472,7 @@ function showFavorites() {
                             </div>
                             ${fav.note.pronunciation ? `<div class="note-pronunciation">🔊 <a href="${fav.note.pronunciation}" target="_blank">Pronunciation</a></div>` : ''}
                             <div class="note-definition">${escapeHtml(fav.note.definition)}</div>
-                            ${fav.note.examples.map(ex => `<div class="note-example">${escapeHtml(ex)}</div>`).join('')}
+                            ${(fav.note.examples || []).map(ex => `<div class="note-example">${escapeHtml(ex)}</div>`).join('')}
                             <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-secondary);">
                                 <small style="color: var(--text-light);">From session: ${formatDate(fav.sessionDate)} • <a href="#" onclick="event.preventDefault(); openSession('${fav.sessionId}'); closeFavorites();" style="color: var(--accent-brown);">View session</a></small>
                             </div>
@@ -744,7 +744,7 @@ function createSessionDetailView(session) {
                 <div class="content-box">
                     <h3>Vocabulary & Expressions</h3>
                     <div class="content-box-content">
-                        ${session.notes && session.notes.length > 0 ? session.notes.map((note, index) => `
+                        ${(session.notes || []).length > 0 ? (session.notes || []).map((note, index) => `
                             <div class="note-item">
                                 <div class="note-header">
                                     <div class="note-title">${escapeHtml(note.title)}</div>
@@ -752,7 +752,7 @@ function createSessionDetailView(session) {
                                 </div>
                                 ${note.pronunciation ? `<div class="note-pronunciation">🔊 <a href="${note.pronunciation}" target="_blank">Pronunciation</a></div>` : ''}
                                 <div class="note-definition">${escapeHtml(note.definition)}</div>
-                                ${note.examples.map(ex => `<div class="note-example">${escapeHtml(ex)}</div>`).join('')}
+                                ${(note.examples || []).map(ex => `<div class="note-example">${escapeHtml(ex)}</div>`).join('')}
                             </div>
                         `).join('') : '<p>No notes available for this session.</p>'}
                     </div>
@@ -767,7 +767,7 @@ function createSessionDetailView(session) {
                 <div class="content-box">
                     <h3>Practice Exercises</h3>
                     <div class="content-box-content">
-                        ${session.exercises && session.exercises.length > 0 ? session.exercises.map((exercise, index) => 
+                        ${(session.exercises || []).length > 0 ? (session.exercises || []).map((exercise, index) => 
                             renderExercise(exercise, index)
                         ).join('') : '<p>No exercises available for this session.</p>'}
                     </div>
@@ -782,7 +782,7 @@ function createSessionDetailView(session) {
                 <div class="content-box">
                     <h3>Useful Resources</h3>
                     <div class="content-box-content">
-                        ${session.links && session.links.length > 0 ? session.links.map(link => `
+                        ${(session.links || []).length > 0 ? (session.links || []).map(link => `
                             <div class="link-item">
                                 <a href="${link.url}" target="_blank">${escapeHtml(link.title)}</a>
                                 ${link.description ? `<p>${escapeHtml(link.description)}</p>` : ''}
@@ -834,7 +834,7 @@ function renderExercise(exercise, index) {
         html += `
             <div class="exercise-links">
                 <h5>📎 Related Links:</h5>
-                ${exercise.links.map(link => `
+                ${(exercise.links || []).map(link => `
                     <a href="${link.url}" target="_blank" class="exercise-link">
                         ${escapeHtml(link.title)}${link.description ? ` - ${escapeHtml(link.description)}` : ''}
                     </a>
@@ -1214,7 +1214,7 @@ function editSession(sessionId) {
     document.getElementById('sessionDate').value = session.date;
     
     // Convert notes back to text format
-    const notesText = session.notes.map(note => {
+    const notesText = (session.notes || []).map(note => {
         let text = note.title;
         if (note.pronunciation) {
             text += '\n🔊 Pronunciation: ' + note.pronunciation;
