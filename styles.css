@@ -150,11 +150,74 @@ h1 {
     margin-bottom: 10px;
 }
 
-.content-sections {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-    gap: 30px;
+/* Tab Navigation */
+.tab-navigation {
+    display: flex;
+    gap: 16px;
     margin-bottom: 40px;
+    flex-wrap: wrap;
+}
+
+.tab-btn {
+    flex: 1;
+    min-width: 150px;
+    padding: 20px 24px;
+    background: #ffffff;
+    border: 2px solid #e8d57e;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1a1a1a;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.tab-btn:hover {
+    transform: translateY(-4px);
+    border-color: #d4af37;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+.tab-btn.active {
+    background: #1a1a1a;
+    color: #f4e157;
+    border-color: #1a1a1a;
+    transform: translateY(-4px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.tab-btn-icon {
+    font-size: 1.5rem;
+    display: block;
+    margin-bottom: 8px;
+}
+
+/* Tab Content */
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.content-sections {
+    max-width: 900px;
+    margin: 0 auto;
 }
 
 .content-box {
@@ -162,13 +225,7 @@ h1 {
     border: 2px solid #e8d57e;
     border-radius: 16px;
     padding: 32px;
-    transition: all 0.3s ease;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.content-box:hover {
-    border-color: #d4af37;
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
 }
 
 .content-box h3 {
@@ -804,8 +861,13 @@ h1 {
         grid-template-columns: 1fr;
     }
 
-    .content-sections {
-        grid-template-columns: 1fr;
+    .tab-navigation {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .tab-btn {
+        min-width: 100%;
     }
 
     .session-box {
@@ -834,6 +896,10 @@ h1 {
     
     .password-content {
         padding: 28px;
+    }
+    
+    .tab-btn-icon {
+        font-size: 1.3rem;
     }
 }
 

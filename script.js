@@ -171,29 +171,50 @@ function createSessionDetailView(session) {
             <h2>${formatDate(session.date)}</h2>
         </div>
         
+        <div class="tab-navigation">
+            <button class="tab-btn active" onclick="switchTab('notes')" id="tab-notes">
+                <span class="tab-btn-icon">📝</span>
+                Notes
+            </button>
+            <button class="tab-btn" onclick="switchTab('exercises')" id="tab-exercises">
+                <span class="tab-btn-icon">✏️</span>
+                Exercises
+            </button>
+            <button class="tab-btn" onclick="switchTab('links')" id="tab-links">
+                <span class="tab-btn-icon">🔗</span>
+                Links
+            </button>
+        </div>
+        
         <div class="content-sections">
-            <div class="content-box">
-                <h3>📝 Notes</h3>
-                <div class="content-box-content">
-                    ${renderNotes(session.notes || [])}
+            <div class="tab-content active" id="content-notes">
+                <div class="content-box">
+                    <h3>📝 Notes</h3>
+                    <div class="content-box-content">
+                        ${renderNotes(session.notes || [])}
+                    </div>
+                    ${renderCommentsSection(session.id, 'notes')}
                 </div>
-                ${renderCommentsSection(session.id, 'notes')}
             </div>
             
-            <div class="content-box">
-                <h3>✏️ Exercises</h3>
-                <div class="content-box-content">
-                    ${renderExercises(session.exercises || [])}
+            <div class="tab-content" id="content-exercises">
+                <div class="content-box">
+                    <h3>✏️ Exercises</h3>
+                    <div class="content-box-content">
+                        ${renderExercises(session.exercises || [])}
+                    </div>
+                    ${renderCommentsSection(session.id, 'exercises')}
                 </div>
-                ${renderCommentsSection(session.id, 'exercises')}
             </div>
             
-            <div class="content-box">
-                <h3>🔗 Links</h3>
-                <div class="content-box-content">
-                    ${renderLinks(session.links || [])}
+            <div class="tab-content" id="content-links">
+                <div class="content-box">
+                    <h3>🔗 Links</h3>
+                    <div class="content-box-content">
+                        ${renderLinks(session.links || [])}
+                    </div>
+                    ${renderCommentsSection(session.id, 'links')}
                 </div>
-                ${renderCommentsSection(session.id, 'links')}
             </div>
         </div>
     `;
@@ -202,6 +223,17 @@ function createSessionDetailView(session) {
     setTimeout(() => setupExerciseInteractions(session.id), 0);
     
     return detail;
+}
+
+// Switch between tabs
+function switchTab(tabName) {
+    // Remove active class from all tabs
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    
+    // Add active class to selected tab
+    document.getElementById(`tab-${tabName}`).classList.add('active');
+    document.getElementById(`content-${tabName}`).classList.add('active');
 }
 
 // Render notes
