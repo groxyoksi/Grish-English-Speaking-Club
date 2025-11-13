@@ -3,9 +3,45 @@ let sessions = [];
 let currentSessionId = null;
 let firebaseReady = false;
 let editingSessionId = null;
+let isAdminLoggedIn = false;
 
 // Admin password (change this to your own password)
 const ADMIN_PASSWORD = "gagagrigri25"; // Change this password!
+
+// Check if admin is logged in on page load
+function checkAdminSession() {
+    const adminSession = localStorage.getItem('eslAdminSession');
+    if (adminSession) {
+        const sessionData = JSON.parse(adminSession);
+        // Check if session is less than 7 days old
+        const sessionAge = Date.now() - sessionData.timestamp;
+        const sevenDays = 7 * 24 * 60 * 60 * 1000;
+        
+        if (sessionAge < sevenDays) {
+            isAdminLoggedIn = true;
+            return true;
+        } else {
+            // Session expired, remove it
+            localStorage.removeItem('eslAdminSession');
+        }
+    }
+    return false;
+}
+
+// Save admin session
+function saveAdminSession() {
+    localStorage.setItem('eslAdminSession', JSON.stringify({
+        timestamp: Date.now()
+    }));
+    isAdminLoggedIn = true;
+}
+
+// Logout admin
+function logoutAdmin() {
+    localStorage.removeItem('eslAdminSession');
+    isAdminLoggedIn = false;
+    alert('Logged out successfully!');
+}
 
 // Wait for Firebase to be ready
 function waitForFirebase() {
@@ -25,6 +61,7 @@ function waitForFirebase() {
 // Initialize the app
 document.addEventListener('DOMContentLoaded', async () => {
     await waitForFirebase();
+    checkAdminSession();
     setupEventListeners();
     loadSessions();
 });
@@ -84,9 +121,30 @@ async function deleteSessionFromFirebase(sessionId) {
 
 // Setup event listeners
 function setupEventListeners() {
-    document.getElementById('adminBtn').addEventListener('click', () => {
-        showPasswordModal();
+    const adminBtn = document.getElementById('adminBtn');
+    
+    // Update button text if logged in
+    updateAdminButton();
+    
+    adminBtn.addEventListener('click', () => {
+        if (isAdminLoggedIn) {
+            openAdmin();
+        } else {
+            showPasswordModal();
+        }
     });
+}
+
+// Update admin button text
+function updateAdminButton() {
+    const adminBtn = document.getElementById('adminBtn');
+    if (isAdminLoggedIn) {
+        adminBtn.textContent = 'Admin ✓';
+        adminBtn.style.opacity = '0.9';
+    } else {
+        adminBtn.textContent = 'Admin';
+        adminBtn.style.opacity = '1';
+    }
 }
 
 // Display all sessions on the main page
@@ -514,6 +572,8 @@ function checkPassword() {
     const error = document.getElementById('passwordError');
     
     if (input.value === ADMIN_PASSWORD) {
+        saveAdminSession(); // Save login session
+        updateAdminButton(); // Update button to show logged in state
         closePasswordModal();
         openAdmin();
     } else {
@@ -539,7 +599,10 @@ function createAdminPanel() {
         <div class="admin-content">
             <div class="admin-header">
                 <h2>Admin Panel</h2>
-                <button class="close-admin-btn" onclick="closeAdmin()">Close</button>
+                <div style="display: flex; gap: 12px;">
+                    <button class="logout-btn" onclick="logoutAdmin(); closeAdmin(); updateAdminButton();" style="background: #8b7355; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer;">Logout</button>
+                    <button class="close-admin-btn" onclick="closeAdmin()">Close</button>
+                </div>
             </div>
             
             <div style="background: #fffcf0; border: 2px solid #d4af37; border-radius: 12px; padding: 16px; margin-bottom: 30px;">
@@ -558,45 +621,39 @@ function createAdminPanel() {
                 <div class="form-group">
                     <label>Notes (Paste all notes at once)</label>
                     <div class="parse-info">
-                        <strong>IMPORTANT: Use blank lines to separate notes!</strong><br><br>
-                        <strong>Example format:</strong><br>
-                        <code style="display: block; white-space: pre; font-size: 0.85rem; line-height: 1.6;">
-END UP
-====
-to finally be or do something
-====
-We ended up at the wrong place
+                        <strong>Use ==== to separate notes!</strong><br><br>
+                        <strong>Example:</strong><br>
+                        <code style="display: block; white-space: pre; font-size: 0.85rem; line-height: 1.6;">END UP
+to finally be or do something after a process
+We ended up at the wrong place.
 How did you end up here?
-
+====
 TAKE A CHILL PILL
-====
 (slang) relax, calm down
-====
 You need to take a chill pill!
-It's just a game, chill out!
-                        </code>
+====
+NEXT WORD
+definition here
+example 1
+example 2
+====</code>
                         <br>
-                        <strong>Rules:</strong><br>
-                        • <strong>Blank line between different notes</strong> (REQUIRED!)<br>
-                        • ==== separates definition from examples<br>
-                        • First line = word/phrase<br>
-                        • Optional: Add pronunciation URL on second line
+                        <strong>Format:</strong><br>
+                        • First line = word/phrase (title)<br>
+                        • Second line = definition<br>
+                        • Rest = examples<br>
+                        • <strong>Use ==== between different notes</strong>
                     </div>
-                    <textarea id="notesText" placeholder="Paste all your notes here...
-
-END UP
-====
-to finally do something
-====
+                    <textarea id="notesText" placeholder="END UP
+to finally be or do something
 Example 1
 Example 2
-
+====
 NEXT WORD
-====
 definition
-====
-example" style="min-height: 300px;"></textarea>
-                    <p class="helper-text"><strong>Remember: BLANK LINES separate notes!</strong></p>
+example
+====" style="min-height: 300px;"></textarea>
+                    <p class="helper-text"><strong>Remember: ==== separates different notes!</strong></p>
                 </div>
                 
                 <div class="form-group">
@@ -721,13 +778,16 @@ function parseNotes(notesText) {
     
     const notes = [];
     
-    // Split by double newlines (blank lines) to get individual notes
-    const noteBlocks = notesText.split(/\n\s*\n/).filter(block => block.trim());
+    // Split by ==== to separate different notes
+    const noteBlocks = notesText.split('====').map(block => block.trim()).filter(block => block);
     
     console.log('Parsing notes, found blocks:', noteBlocks.length);
     
     noteBlocks.forEach((block, blockIndex) => {
         console.log(`Processing block ${blockIndex}:`, block);
+        
+        const lines = block.split('\n').map(l => l.trim()).filter(l => l);
+        if (lines.length === 0) return;
         
         const note = {
             title: '',
@@ -736,45 +796,42 @@ function parseNotes(notesText) {
             examples: []
         };
         
-        // Split block by ==== to separate title, definition, and examples
-        const parts = block.split('====').map(p => p.trim());
+        // First line is always the title
+        note.title = lines[0];
         
-        console.log(`Block ${blockIndex} has ${parts.length} parts`);
-        
-        if (parts.length >= 1) {
-            // First part: title and optional pronunciation
-            const titleLines = parts[0].split('\n').map(l => l.trim()).filter(l => l);
-            note.title = titleLines[0] || '';
+        // Process remaining lines
+        let definitionSet = false;
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i];
             
-            // Check for pronunciation in title section
-            titleLines.forEach(line => {
-                if (line.includes('🔊') || line.toLowerCase().includes('pronunciation:')) {
-                    const match = line.match(/https?:\/\/[^\s]+/);
-                    if (match) {
-                        note.pronunciation = match[0];
-                    }
+            // Check for pronunciation link
+            if (line.includes('🔊') || line.includes('🗣') || line.includes('🔤') || 
+                line.toLowerCase().includes('pronunciation:')) {
+                const match = line.match(/https?:\/\/[^\s]+/);
+                if (match) {
+                    note.pronunciation = match[0];
                 }
-            });
+                // Don't skip this line, it might be part of the title
+                if (!definitionSet) {
+                    note.definition = line;
+                    definitionSet = true;
+                }
+                continue;
+            }
+            
+            // If this is the first content line after title, it's the definition
+            if (!definitionSet) {
+                note.definition = line;
+                definitionSet = true;
+            }
+            // Everything else is examples
+            else {
+                note.examples.push(line);
+            }
         }
         
-        if (parts.length >= 2) {
-            // Second part: definition
-            note.definition = parts[1].trim();
-        }
-        
-        if (parts.length >= 3) {
-            // Third part: examples
-            const exampleLines = parts[2].split('\n')
-                .map(l => l.trim())
-                .filter(l => l);
-            note.examples = exampleLines;
-        }
-        
-        // Only add note if it has at least a title
-        if (note.title) {
-            console.log('Adding note:', note);
-            notes.push(note);
-        }
+        console.log('Adding note:', note);
+        notes.push(note);
     });
     
     console.log('Total notes parsed:', notes.length);
@@ -980,7 +1037,15 @@ function showSuccessMessage() {
         <div style="font-size: 3rem; margin-bottom: 16px;">✅</div>
         <h3 style="color: #1a1a1a; margin-bottom: 12px; font-size: 1.5rem;">Session Saved!</h3>
         <p style="color: #666; margin-bottom: 24px;">Your session is now live and visible to all students instantly!</p>
-        <button onclick="this.parentElement.parentElement.remove(); closeAdmin(); displaySessions();" style="background: #1a1a1a; color: #f4e157; border: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 1rem;">
+        <button onclick="
+            this.parentElement.parentElement.remove(); 
+            document.querySelector('.admin-panel.active')?.remove();
+            document.querySelectorAll('.session-detail').forEach(el => el.remove());
+            const container = document.getElementById('sessionsContainer');
+            if (container) {
+                container.style.display = 'grid';
+            }
+        " style="background: #1a1a1a; color: #f4e157; border: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 1rem;">
             Done
         </button>
     `;
@@ -1001,8 +1066,12 @@ function showSuccessMessage() {
     backdrop.onclick = () => {
         backdrop.remove();
         message.remove();
-        closeAdmin();
-        displaySessions();
+        document.querySelector('.admin-panel.active')?.remove();
+        document.querySelectorAll('.session-detail').forEach(el => el.remove());
+        const container = document.getElementById('sessionsContainer');
+        if (container) {
+            container.style.display = 'grid';
+        }
     };
     document.body.insertBefore(backdrop, message);
 }
