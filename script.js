@@ -130,17 +130,34 @@ function formatDate(dateString) {
 
 // Open a specific session
 function openSession(sessionId) {
+    console.log('Opening session:', sessionId);
     currentSessionId = sessionId;
     const session = sessions.find(s => s.id === sessionId);
     
-    if (!session) return;
+    if (!session) {
+        console.error('Session not found:', sessionId);
+        return;
+    }
+    
+    console.log('Session data:', session);
+    
+    // Remove any existing detail views first
+    document.querySelectorAll('.session-detail').forEach(el => el.remove());
     
     // Hide main page
-    document.getElementById('sessionsContainer').style.display = 'none';
+    const container = document.getElementById('sessionsContainer');
+    container.style.display = 'none';
     
     // Create session detail view
-    const detailView = createSessionDetailView(session);
-    document.querySelector('.container main').appendChild(detailView);
+    try {
+        const detailView = createSessionDetailView(session);
+        document.querySelector('.container').appendChild(detailView);
+        console.log('Detail view created successfully');
+    } catch (error) {
+        console.error('Error creating detail view:', error);
+        // Show main page again if there's an error
+        container.style.display = 'grid';
+    }
 }
 
 // Create session detail view
@@ -412,8 +429,15 @@ function checkMultipleChoice(exerciseIndex, correctIndex) {
 
 // Close session and return to main view
 function closeSession() {
-    document.querySelector('.session-detail').remove();
-    document.getElementById('sessionsContainer').style.display = 'grid';
+    console.log('Closing session');
+    const detailView = document.querySelector('.session-detail');
+    if (detailView) {
+        detailView.remove();
+    }
+    const container = document.getElementById('sessionsContainer');
+    if (container) {
+        container.style.display = 'grid';
+    }
     currentSessionId = null;
 }
 
