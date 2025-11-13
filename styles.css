@@ -751,6 +751,23 @@ h1 {
     border-color: #c62828;
 }
 
+.edit-session-btn {
+    background: #f0f7ff;
+    color: #1565c0;
+    border: 2px solid #90caf9;
+    padding: 10px 20px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    font-weight: 600;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.edit-session-btn:hover {
+    background: #e3f2fd;
+    border-color: #1565c0;
+}
+
 .admin-actions {
     margin-bottom: 30px;
 }

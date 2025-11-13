@@ -2,9 +2,10 @@
 let sessions = [];
 let currentSessionId = null;
 let firebaseReady = false;
+let editingSessionId = null;
 
 // Admin password (change this to your own password)
-const ADMIN_PASSWORD = "esl2025"; // Change this password!
+const ADMIN_PASSWORD = "gagagrigri25"; // Change this password!
 
 // Wait for Firebase to be ready
 function waitForFirebase() {
@@ -557,27 +558,45 @@ function createAdminPanel() {
                 <div class="form-group">
                     <label>Notes (Paste all notes at once)</label>
                     <div class="parse-info">
-                        <strong>Format:</strong> Separate each note with a <strong>blank line</strong>.<br><br>
-                        <strong>Within each note:</strong><br>
-                        <code>
-                        WORD OR PHRASE<br>
-                        🔊 Pronunciation: https://link.com (optional)<br>
-                        ====<br>
-                        Definition goes here<br>
-                        ====<br>
-                        Example 1<br>
-                        Example 2<br>
-                        <br>
-                        NEXT WORD (blank line above!)
+                        <strong>IMPORTANT: Use blank lines to separate notes!</strong><br><br>
+                        <strong>Example format:</strong><br>
+                        <code style="display: block; white-space: pre; font-size: 0.85rem; line-height: 1.6;">
+END UP
+====
+to finally be or do something
+====
+We ended up at the wrong place
+How did you end up here?
+
+TAKE A CHILL PILL
+====
+(slang) relax, calm down
+====
+You need to take a chill pill!
+It's just a game, chill out!
                         </code>
-                        <br><br>
-                        <strong>Key points:</strong><br>
-                        • First line = title/word<br>
+                        <br>
+                        <strong>Rules:</strong><br>
+                        • <strong>Blank line between different notes</strong> (REQUIRED!)<br>
                         • ==== separates definition from examples<br>
-                        • Blank line separates different notes
+                        • First line = word/phrase<br>
+                        • Optional: Add pronunciation URL on second line
                     </div>
-                    <textarea id="notesText" placeholder="Paste all your notes here..." style="min-height: 300px;"></textarea>
-                    <p class="helper-text">Remember: Use blank lines to separate different notes!</p>
+                    <textarea id="notesText" placeholder="Paste all your notes here...
+
+END UP
+====
+to finally do something
+====
+Example 1
+Example 2
+
+NEXT WORD
+====
+definition
+====
+example" style="min-height: 300px;"></textarea>
+                    <p class="helper-text"><strong>Remember: BLANK LINES separate notes!</strong></p>
                 </div>
                 
                 <div class="form-group">
@@ -617,51 +636,98 @@ function renderSessionsList() {
                 <h4>${formatDate(session.date)}</h4>
                 <p style="color: #666;">${session.notes?.length || 0} notes • ${session.exercises?.length || 0} exercises • ${session.links?.length || 0} links</p>
             </div>
-            <button class="delete-session-btn" onclick="deleteSession('${session.id}')">Delete</button>
+            <div style="display: flex; gap: 12px;">
+                <button class="edit-session-btn" onclick="editSession('${session.id}')">Edit</button>
+                <button class="delete-session-btn" onclick="deleteSession('${session.id}')">Delete</button>
+            </div>
         </div>
     `).join('');
 }
 
-// Parse bulk notes text into structured notes array
+// Edit session
+function editSession(sessionId) {
+    const session = sessions.find(s => s.id === sessionId);
+    if (!session) return;
+    
+    editingSessionId = sessionId;
+    
+    // Populate form fields
+    document.getElementById('sessionDate').value = session.date;
+    
+    // Convert notes back to text format
+    const notesText = session.notes.map(note => {
+        let text = note.title;
+        if (note.pronunciation) {
+            text += '\n🔊 Pronunciation: ' + note.pronunciation;
+        }
+        text += '\n====';
+        if (note.definition) {
+            text += '\n' + note.definition;
+        }
+        text += '\n====';
+        if (note.examples && note.examples.length > 0) {
+            text += '\n' + note.examples.join('\n');
+        }
+        return text;
+    }).join('\n\n');
+    
+    document.getElementById('notesText').value = notesText;
+    
+    // Populate exercises
+    const exercisesContainer = document.getElementById('exercisesContainer');
+    exercisesContainer.innerHTML = '';
+    session.exercises.forEach(exercise => {
+        addExerciseFields();
+        const lastExercise = exercisesContainer.lastElementChild;
+        lastExercise.querySelector('[data-field="type"]').value = exercise.type;
+        updateExerciseFields(lastExercise.id);
+        
+        setTimeout(() => {
+            if (exercise.type === 'fill-blank') {
+                lastExercise.querySelector('[data-field="question"]').value = exercise.question;
+                lastExercise.querySelector('[data-field="answer"]').value = exercise.answer;
+            } else if (exercise.type === 'multiple-choice') {
+                lastExercise.querySelector('[data-field="question"]').value = exercise.question;
+                const optionsText = exercise.options.map((opt, idx) => 
+                    idx === exercise.correctIndex ? '*' + opt : opt
+                ).join('\n');
+                lastExercise.querySelector('[data-field="options"]').value = optionsText;
+            } else if (exercise.type === 'text') {
+                lastExercise.querySelector('[data-field="question"]').value = exercise.question;
+                lastExercise.querySelector('[data-field="instructions"]').value = exercise.instructions;
+            }
+        }, 100);
+    });
+    
+    // Populate links
+    const linksContainer = document.getElementById('linksContainer');
+    linksContainer.innerHTML = '';
+    session.links.forEach(link => {
+        addLinkFields();
+        const lastLink = linksContainer.lastElementChild;
+        lastLink.querySelector('[data-field="title"]').value = link.title;
+        lastLink.querySelector('[data-field="url"]').value = link.url;
+        lastLink.querySelector('[data-field="description"]').value = link.description || '';
+    });
+    
+    // Change button text
+    document.querySelector('.save-session-btn').textContent = 'Update Session';
+    
+    // Scroll to top of form
+    document.querySelector('.admin-form').scrollIntoView({ behavior: 'smooth' });
+}
 function parseNotes(notesText) {
     if (!notesText || !notesText.trim()) return [];
     
     const notes = [];
     
-    // First, split the entire text into individual note blocks
-    // A note block ends when we see four equal signs followed by a blank line (or end of text)
-    // We'll use a more sophisticated approach
+    // Split by double newlines (blank lines) to get individual notes
+    const noteBlocks = notesText.split(/\n\s*\n/).filter(block => block.trim());
     
-    // Split by lines first
-    const allLines = notesText.split('\n');
-    let currentNoteLines = [];
-    let noteBlocks = [];
+    console.log('Parsing notes, found blocks:', noteBlocks.length);
     
-    for (let i = 0; i < allLines.length; i++) {
-        const line = allLines[i].trim();
-        
-        // Check if this is a separator line (empty line after collecting some content)
-        if (line === '' && currentNoteLines.length > 0) {
-            // Check if we have accumulated a complete note
-            // A complete note should have at least a title
-            if (currentNoteLines.length > 0) {
-                noteBlocks.push(currentNoteLines.join('\n'));
-                currentNoteLines = [];
-            }
-        } else if (line !== '') {
-            currentNoteLines.push(line);
-        }
-    }
-    
-    // Don't forget the last note if there's no trailing blank line
-    if (currentNoteLines.length > 0) {
-        noteBlocks.push(currentNoteLines.join('\n'));
-    }
-    
-    // Now parse each note block
-    noteBlocks.forEach(block => {
-        const lines = block.split('\n').map(l => l.trim()).filter(l => l);
-        if (lines.length === 0) return;
+    noteBlocks.forEach((block, blockIndex) => {
+        console.log(`Processing block ${blockIndex}:`, block);
         
         const note = {
             title: '',
@@ -670,53 +736,48 @@ function parseNotes(notesText) {
             examples: []
         };
         
-        let currentSection = 'title';
-        let definitionStarted = false;
-        let examplesStarted = false;
+        // Split block by ==== to separate title, definition, and examples
+        const parts = block.split('====').map(p => p.trim());
         
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
+        console.log(`Block ${blockIndex} has ${parts.length} parts`);
+        
+        if (parts.length >= 1) {
+            // First part: title and optional pronunciation
+            const titleLines = parts[0].split('\n').map(l => l.trim()).filter(l => l);
+            note.title = titleLines[0] || '';
             
-            // Check if it's the title line (first line)
-            if (i === 0) {
-                note.title = line;
-                continue;
-            }
-            
-            // Check for pronunciation link
-            if (line.includes('🔊 Pronunciation:') || line.includes('Pronunciation:')) {
-                const match = line.match(/https?:\/\/[^\s]+/);
-                if (match) {
-                    note.pronunciation = match[0];
+            // Check for pronunciation in title section
+            titleLines.forEach(line => {
+                if (line.includes('🔊') || line.toLowerCase().includes('pronunciation:')) {
+                    const match = line.match(/https?:\/\/[^\s]+/);
+                    if (match) {
+                        note.pronunciation = match[0];
+                    }
                 }
-                continue;
-            }
-            
-            // Check for separator (four equal signs)
-            if (line === '====' || line === '====') {
-                if (!definitionStarted) {
-                    currentSection = 'definition';
-                    definitionStarted = true;
-                } else {
-                    currentSection = 'examples';
-                    examplesStarted = true;
-                }
-                continue;
-            }
-            
-            // Add content to appropriate section
-            if (currentSection === 'definition' && definitionStarted && !examplesStarted) {
-                note.definition += (note.definition ? ' ' : '') + line;
-            } else if (currentSection === 'examples' || examplesStarted) {
-                note.examples.push(line);
-            }
+            });
         }
         
+        if (parts.length >= 2) {
+            // Second part: definition
+            note.definition = parts[1].trim();
+        }
+        
+        if (parts.length >= 3) {
+            // Third part: examples
+            const exampleLines = parts[2].split('\n')
+                .map(l => l.trim())
+                .filter(l => l);
+            note.examples = exampleLines;
+        }
+        
+        // Only add note if it has at least a title
         if (note.title) {
+            console.log('Adding note:', note);
             notes.push(note);
         }
     });
     
+    console.log('Total notes parsed:', notes.length);
     return notes;
 }
 
@@ -803,6 +864,8 @@ async function saveNewSession(event) {
     const notesText = document.getElementById('notesText').value;
     const notes = parseNotes(notesText);
     
+    console.log('Parsed notes:', notes);
+    
     // Collect exercises
     const exercises = [];
     document.querySelectorAll('#exercisesContainer .item-preview').forEach(exerciseDiv => {
@@ -853,22 +916,43 @@ async function saveNewSession(event) {
         }
     });
     
-    // Create new session
-    const session = {
-        id: generateId(),
-        date: date,
-        notes: notes,
-        exercises: exercises,
-        links: links
-    };
+    if (editingSessionId) {
+        // Update existing session
+        const sessionIndex = sessions.findIndex(s => s.id === editingSessionId);
+        if (sessionIndex !== -1) {
+            sessions[sessionIndex] = {
+                id: editingSessionId,
+                date: date,
+                notes: notes,
+                exercises: exercises,
+                links: links
+            };
+        }
+        editingSessionId = null;
+    } else {
+        // Create new session
+        const session = {
+            id: generateId(),
+            date: date,
+            notes: notes,
+            exercises: exercises,
+            links: links
+        };
+        sessions.push(session);
+    }
     
-    sessions.push(session);
     sessions.sort((a, b) => new Date(b.date) - new Date(a.date));
     
     // Save to Firebase
     const saved = await saveSessions();
     
     if (saved) {
+        // Reset form
+        document.querySelector('.admin-form').reset();
+        document.getElementById('exercisesContainer').innerHTML = '';
+        document.getElementById('linksContainer').innerHTML = '';
+        document.querySelector('.save-session-btn').textContent = 'Save Session to Cloud';
+        
         showSuccessMessage();
     }
 }
