@@ -358,8 +358,6 @@ function searchSessions(query) {
     const results = [];
     const lowerQuery = query.toLowerCase();
     
-    console.log('Searching for:', query, 'in', sessions.length, 'sessions');
-    
     sessions.forEach(session => {
         if (session.notes) {
             (session.notes || []).forEach(note => {
@@ -404,7 +402,6 @@ function searchSessions(query) {
         }
     });
     
-    console.log('Found', results.length, 'results');
     displaySearchResults(results);
 }
 
@@ -412,11 +409,8 @@ function displaySearchResults(results) {
     const container = document.getElementById('searchResults');
     
     if (!container) {
-        console.error('Search results container not found!');
         return;
     }
-    
-    console.log('Displaying', results.length, 'search results');
     
     if (results.length === 0) {
         container.innerHTML = '<div class="no-results">No results found</div>';
@@ -450,7 +444,6 @@ function displaySearchResults(results) {
     }).join('');
     
     container.classList.add('active');
-    console.log('Search results displayed, active class added');
 }
 
 // Helper function to highlight search term in text
