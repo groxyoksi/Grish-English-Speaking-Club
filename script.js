@@ -10,7 +10,7 @@ let editingSessionId = null;
 let isAdminLoggedIn = false;
 
 // Admin email - CHANGE THIS to your email address!
-const ADMIN_EMAIL = "oksuzian.grigorii@gmail.com"; // ⚠️ CHANGE THIS to your admin email!
+const ADMIN_EMAIL = "oksuzian.grigorii@gmail.com";
 
 // Helper function to check if current user is admin
 function isAdmin() {
@@ -334,14 +334,43 @@ function searchSessions(query) {
     sessions.forEach(session => {
         if (session.notes) {
             (session.notes || []).forEach(note => {
-                const searchText = `${note.title} ${note.definition} ${(note.examples || []).join(' ')}`.toLowerCase();
-                if (searchText.includes(lowerQuery)) {
+                // Search in title
+                if (note.title && note.title.toLowerCase().includes(lowerQuery)) {
                     results.push({
                         sessionId: session.id,
                         sessionDate: session.date,
-                        note: note
+                        noteTitle: note.title,
+                        matchedIn: 'title',
+                        matchedText: note.title,
+                        query: query
                     });
                 }
+                
+                // Search in definition
+                if (note.definition && note.definition.toLowerCase().includes(lowerQuery)) {
+                    results.push({
+                        sessionId: session.id,
+                        sessionDate: session.date,
+                        noteTitle: note.title,
+                        matchedIn: 'definition',
+                        matchedText: note.definition,
+                        query: query
+                    });
+                }
+                
+                // Search in examples
+                (note.examples || []).forEach((example, index) => {
+                    if (example.toLowerCase().includes(lowerQuery)) {
+                        results.push({
+                            sessionId: session.id,
+                            sessionDate: session.date,
+                            noteTitle: note.title,
+                            matchedIn: 'example',
+                            matchedText: example,
+                            query: query
+                        });
+                    }
+                });
             });
         }
     });
@@ -358,15 +387,72 @@ function displaySearchResults(results) {
         return;
     }
     
-    container.innerHTML = results.map(result => `
-        <div class="search-result" onclick="openSessionFromSearch('${result.sessionId}')">
-            <h4>${escapeHtml(result.note.title)}</h4>
-            <p>${escapeHtml(result.note.definition)}</p>
-            <small>From session: ${formatDate(result.sessionDate)}</small>
-        </div>
-    `).join('');
+    container.innerHTML = results.map(result => {
+        // Highlight the search term in the matched text
+        const highlightedText = highlightSearchTerm(result.matchedText, result.query);
+        
+        // Get snippet with context (max 150 chars)
+        const snippet = getTextSnippet(result.matchedText, result.query, 150);
+        const highlightedSnippet = highlightSearchTerm(snippet, result.query);
+        
+        // Badge to show where it matched
+        const badge = result.matchedIn === 'title' ? '📌 Word' : 
+                     result.matchedIn === 'definition' ? '📖 Definition' : 
+                     '💬 Example';
+        
+        return `
+            <div class="search-result" onclick="openSessionFromSearch('${result.sessionId}')">
+                <div class="search-result-header">
+                    <span class="search-badge">${badge}</span>
+                    <span class="search-word">${escapeHtml(result.noteTitle)}</span>
+                </div>
+                <div class="search-result-text">${highlightedSnippet}</div>
+                <div class="search-result-footer">📅 ${formatDate(result.sessionDate)}</div>
+            </div>
+        `;
+    }).join('');
     
     container.classList.add('active');
+}
+
+// Helper function to highlight search term in text
+function highlightSearchTerm(text, query) {
+    if (!text || !query) return escapeHtml(text);
+    
+    const escapedText = escapeHtml(text);
+    const escapedQuery = escapeHtml(query);
+    const regex = new RegExp(`(${escapedQuery})`, 'gi');
+    return escapedText.replace(regex, '<mark>$1</mark>');
+}
+
+// Helper function to get text snippet around the match
+function getTextSnippet(text, query, maxLength) {
+    if (!text) return '';
+    if (text.length <= maxLength) return text;
+    
+    const lowerText = text.toLowerCase();
+    const lowerQuery = query.toLowerCase();
+    const matchIndex = lowerText.indexOf(lowerQuery);
+    
+    if (matchIndex === -1) return text.substring(0, maxLength) + '...';
+    
+    // Calculate start position to center the match
+    const halfLength = Math.floor(maxLength / 2);
+    let start = Math.max(0, matchIndex - halfLength);
+    let end = Math.min(text.length, start + maxLength);
+    
+    // Adjust start if we're at the end
+    if (end - start < maxLength) {
+        start = Math.max(0, end - maxLength);
+    }
+    
+    let snippet = text.substring(start, end);
+    
+    // Add ellipsis
+    if (start > 0) snippet = '...' + snippet;
+    if (end < text.length) snippet = snippet + '...';
+    
+    return snippet;
 }
 
 function hideSearchResults() {
