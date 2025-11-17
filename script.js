@@ -1828,7 +1828,7 @@ function showSuccessMessage() {
         if (searchSection) {
             searchSection.style.display = 'block';
         }
-    }';
+    };
     document.body.insertBefore(backdrop, message);
 }
 
