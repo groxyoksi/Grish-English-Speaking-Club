@@ -9,8 +9,13 @@ let firebaseReady = false;
 let editingSessionId = null;
 let isAdminLoggedIn = false;
 
-// Admin password (change this to your own password)
-const ADMIN_PASSWORD = "gagagrigri25"; // Change this password!
+// Admin email - CHANGE THIS to your email address!
+const ADMIN_EMAIL = "your-email@gmail.com"; // ⚠️ CHANGE THIS to your admin email!
+
+// Helper function to check if current user is admin
+function isAdmin() {
+    return currentUser && currentUser.email === ADMIN_EMAIL;
+}
 
 // ============================================================================
 // INITIALIZATION
@@ -71,6 +76,9 @@ function updateUIForLoggedInUser() {
     loginBtn.style.display = 'none';
     userBtn.style.display = 'flex';
     userName.textContent = currentUser.displayName;
+    
+    // Update admin button visibility
+    updateAdminButton();
 }
 
 // Update UI when user is logged out
@@ -80,6 +88,9 @@ function updateUIForLoggedOutUser() {
     
     loginBtn.style.display = 'block';
     userBtn.style.display = 'none';
+    
+    // Hide admin button when logged out
+    updateAdminButton();
 }
 
 // Show auth modal
@@ -523,43 +534,28 @@ function removeFavoriteFromView(favoriteId, button) {
 // ============================================================================
 
 function checkAdminSession() {
-    const adminSession = localStorage.getItem('eslAdminSession');
-    if (adminSession) {
-        const sessionData = JSON.parse(adminSession);
-        const sessionAge = Date.now() - sessionData.timestamp;
-        const sevenDays = 7 * 24 * 60 * 60 * 1000;
-        
-        if (sessionAge < sevenDays) {
-            isAdminLoggedIn = true;
-            return true;
-        } else {
-            localStorage.removeItem('eslAdminSession');
-        }
-    }
-    return false;
-}
-
-function saveAdminSession() {
-    localStorage.setItem('eslAdminSession', JSON.stringify({
-        timestamp: Date.now()
-    }));
-    isAdminLoggedIn = true;
+    // Admin status is now based on Firebase auth, not localStorage
+    return isAdmin();
 }
 
 function logoutAdmin() {
-    localStorage.removeItem('eslAdminSession');
-    isAdminLoggedIn = false;
-    alert('Logged out successfully!');
+    // Just close admin panel, user stays logged into Firebase
+    const adminPanel = document.getElementById('adminPanel');
+    if (adminPanel) adminPanel.remove();
+    alert('Admin panel closed. You are still logged into your account.');
 }
 
 function updateAdminButton() {
     const adminBtn = document.getElementById('adminBtn');
-    if (isAdminLoggedIn) {
+    if (!adminBtn) return;
+    
+    if (isAdmin()) {
         adminBtn.textContent = 'Admin ✓';
         adminBtn.style.opacity = '0.9';
+        adminBtn.style.display = 'block';
     } else {
-        adminBtn.textContent = 'Admin';
-        adminBtn.style.opacity = '1';
+        // Hide admin button for non-admin users
+        adminBtn.style.display = 'none';
     }
 }
 
@@ -576,10 +572,11 @@ function setupEventListeners() {
     updateAdminButton();
     
     adminBtn.addEventListener('click', () => {
-        if (isAdminLoggedIn) {
+        if (isAdmin()) {
             openAdmin();
         } else {
-            showPasswordModal();
+            alert('You must be logged in as admin to access this feature.\n\nIf you are the admin, please log in with your admin email address.');
+            showAuthModal();
         }
     });
     
@@ -1040,53 +1037,14 @@ async function submitComment(sessionId, section) {
 // ADMIN PANEL
 // ============================================================================
 
-function showPasswordModal() {
-    const modal = document.createElement('div');
-    modal.className = 'password-modal active';
-    modal.innerHTML = `
-        <div class="password-content">
-            <h3>🔒 Admin Access</h3>
-            <input type="password" id="adminPassword" placeholder="Enter password" />
-            <div class="password-btn-container">
-                <button class="password-submit" onclick="checkPassword()">Enter</button>
-                <button class="password-cancel" onclick="closePasswordModal()">Cancel</button>
-            </div>
-            <div id="passwordError" class="password-error"></div>
-        </div>
-    `;
-    document.body.appendChild(modal);
-    
-    document.getElementById('adminPassword').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            checkPassword();
-        }
-    });
-    
-    setTimeout(() => document.getElementById('adminPassword').focus(), 100);
-}
-
-function closePasswordModal() {
-    const modal = document.querySelector('.password-modal');
-    if (modal) modal.remove();
-}
-
-function checkPassword() {
-    const input = document.getElementById('adminPassword');
-    const error = document.getElementById('passwordError');
-    
-    if (input.value === ADMIN_PASSWORD) {
-        saveAdminSession();
-        updateAdminButton();
-        closePasswordModal();
-        openAdmin();
-    } else {
-        error.textContent = 'Incorrect password. Please try again.';
-        input.value = '';
-        input.focus();
-    }
-}
+// Password modal functions removed - admin access now based on Firebase email auth
 
 function openAdmin() {
+    // Double-check admin status before opening
+    if (!isAdmin()) {
+        alert('Admin access denied. Please log in with your admin email.');
+        return;
+    }
     const adminPanel = createAdminPanel();
     document.body.appendChild(adminPanel);
 }
