@@ -432,7 +432,7 @@ function displaySearchResults(results) {
                      '💬 Example';
         
         return `
-            <div class="search-result" onclick="openSessionFromSearch('${result.sessionId}')">
+            <div class="search-result" onclick="openSessionFromSearch('${result.sessionId}', '${escapeHtml(result.noteTitle)}')">
                 <div class="search-result-header">
                     <span class="search-badge">${badge}</span>
                     <span class="search-word">${escapeHtml(result.noteTitle)}</span>
@@ -492,11 +492,11 @@ function hideSearchResults() {
     container.innerHTML = '';
 }
 
-function openSessionFromSearch(sessionId) {
+function openSessionFromSearch(sessionId, noteTitle) {
     hideSearchResults();
     document.getElementById('searchInput').value = '';
     document.getElementById('clearSearch').style.display = 'none';
-    openSession(sessionId);
+    openSession(sessionId, noteTitle);
 }
 
 // ============================================================================
@@ -796,7 +796,7 @@ function formatDate(dateString) {
 // SESSION DETAIL VIEW
 // ============================================================================
 
-function openSession(sessionId) {
+function openSession(sessionId, noteTitle = null) {
     console.log('Opening session:', sessionId);
     currentSessionId = sessionId;
     const session = sessions.find(s => s.id === sessionId);
@@ -818,6 +818,25 @@ function openSession(sessionId) {
         const detailView = createSessionDetailView(session);
         document.querySelector('.container').appendChild(detailView);
         console.log('Detail view created successfully');
+        
+        // Scroll to specific note if provided
+        if (noteTitle) {
+            setTimeout(() => {
+                const noteElement = document.querySelector(`[data-note-title="${noteTitle}"]`);
+                if (noteElement) {
+                    noteElement.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'center' 
+                    });
+                    // Add a highlight effect
+                    noteElement.style.transition = 'background-color 0.5s';
+                    noteElement.style.backgroundColor = 'rgba(212, 165, 116, 0.2)';
+                    setTimeout(() => {
+                        noteElement.style.backgroundColor = '';
+                    }, 2000);
+                }
+            }, 100);
+        }
     } catch (error) {
         console.error('Error creating detail view:', error);
         container.style.display = 'grid';
@@ -859,7 +878,7 @@ function createSessionDetailView(session) {
                     <h3>Vocabulary & Expressions</h3>
                     <div class="content-box-content">
                         ${(session.notes || []).length > 0 ? (session.notes || []).map((note, index) => `
-                            <div class="note-item">
+                            <div class="note-item" data-note-title="${escapeHtml(note.title)}">
                                 <div class="note-header">
                                     <div class="note-title">${escapeHtml(note.title)}</div>
                                     ${currentUser ? `<button class="favorite-btn ${isFavorite(session.id, note.title) ? 'active' : ''}" onclick="toggleFavoriteUI('${session.id}', '${escapeHtml(note.title)}', this)">⭐</button>` : ''}
