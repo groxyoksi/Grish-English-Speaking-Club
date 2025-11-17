@@ -133,7 +133,9 @@ function showAuthModal() {
                 </div>
                 <div class="form-group">
                     <label>Password (at least 6 characters)</label>
-                    <input type="password" id="signupPassword" required minlength="6">
+                    <input type="password" id="signupPassword" required minlength="6" 
+                           oninput="updatePasswordStrength(this, 'passwordStrength')">
+                    <div id="passwordStrength" class="password-strength-indicator"></div>
                 </div>
                 <button type="submit" class="auth-submit">Sign Up</button>
                 <button type="button" class="auth-cancel" onclick="closeAuthModal()">Cancel</button>
@@ -316,11 +318,21 @@ function setupSearch() {
         }
     });
     
+    // Show recent searches on focus
+    searchInput.addEventListener('focus', () => {
+        if (!searchInput.value && recentSearches.length > 0) {
+            const container = document.getElementById('searchResults');
+            container.innerHTML = showRecentSearches();
+            container.classList.add('active');
+        }
+    });
+    
     // Also search on Enter key
     searchInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
             const query = e.target.value.trim();
             if (query.length >= 2) {
+                addToRecentSearches(query);
                 searchSessions(query);
             }
         }
@@ -702,6 +714,7 @@ function setupEventListeners() {
     themeToggle.addEventListener('click', toggleDarkMode);
     
     setupSearch();
+    setupKeyboardShortcuts();
 }
 
 // ============================================================================
@@ -709,6 +722,9 @@ function setupEventListeners() {
 // ============================================================================
 
 async function loadSessions() {
+    // Show loading skeleton
+    showLoadingSkeleton();
+    
     try {
         const sessionsRef = window.firebaseRef(window.firebaseDB, 'sessions');
         
@@ -764,8 +780,13 @@ function displaySessions() {
     if (sessions.length === 0) {
         container.innerHTML = `
             <div class="empty-state">
+                <div class="empty-icon">📚</div>
                 <h2>No Sessions Yet</h2>
-                <p>Click the Admin button to add your first session!</p>
+                <p>Ready to create your first lesson?</p>
+                ${currentUser && currentUser.email === ADMIN_EMAIL ? 
+                    '<button class="empty-action-btn" onclick="document.getElementById(\'adminBtn\').click()">Create First Session</button>' :
+                    '<p style="color: var(--text-light); font-size: 0.9rem;">New sessions will appear here when your teacher adds them.</p>'
+                }
             </div>
         `;
         return;
@@ -784,6 +805,16 @@ function displaySessions() {
             openSession(sessionId);
         });
     });
+}
+
+// Show loading skeleton while sessions load
+function showLoadingSkeleton() {
+    const container = document.getElementById('sessionsContainer');
+    container.innerHTML = `
+        <div class="skeleton-card"></div>
+        <div class="skeleton-card"></div>
+        <div class="skeleton-card"></div>
+    `;
 }
 
 function formatDate(dateString) {
@@ -1183,6 +1214,28 @@ function openAdmin() {
     }
     const adminPanel = createAdminPanel();
     document.body.appendChild(adminPanel);
+    
+    // Check for existing draft
+    setTimeout(() => {
+        const draft = loadAdminDraft();
+        if (draft && draft.date) {
+            document.getElementById('draftRestorePrompt').style.display = 'block';
+        }
+        
+        // Start auto-save
+        startAutoSave();
+    }, 100);
+}
+
+function restoreAdminDraft() {
+    const draft = loadAdminDraft();
+    if (!draft) return;
+    
+    if (draft.date) document.getElementById('sessionDate').value = draft.date;
+    if (draft.notes) document.getElementById('notesText').value = draft.notes;
+    
+    document.getElementById('draftRestorePrompt').style.display = 'none';
+    showToast('Draft restored!', 'success');
 }
 
 function createAdminPanel() {
@@ -1194,7 +1247,8 @@ function createAdminPanel() {
         <div class="admin-content">
             <div class="admin-header">
                 <h2>Admin Panel</h2>
-                <div style="display: flex; gap: 12px;">
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <div id="draftIndicator" style="display: none; font-size: 0.85rem; color: var(--text-light);"></div>
                     <button class="logout-btn" onclick="logoutAdmin(); closeAdmin(); updateAdminButton();">Logout</button>
                     <button class="close-admin-btn" onclick="closeAdmin()">Close</button>
                 </div>
@@ -1203,6 +1257,15 @@ function createAdminPanel() {
             <div style="background: #fffcf0; border: 2px solid #d4af37; border-radius: 12px; padding: 16px; margin-bottom: 30px;">
                 <h4 style="color: #1a1a1a; margin-bottom: 8px;">✨ Firebase Connected!</h4>
                 <p style="color: #666; margin: 0;">Sessions are saved instantly to the cloud. Students see updates in real-time!</p>
+            </div>
+            
+            <div id="draftRestorePrompt" style="display: none; background: #e3f2fd; border: 2px solid #2196f3; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+                <h4 style="color: #1565c0; margin-bottom: 8px;">💾 Draft Found!</h4>
+                <p style="color: #424242; margin-bottom: 12px;">You have unsaved work. Would you like to restore it?</p>
+                <div style="display: flex; gap: 12px;">
+                    <button onclick="restoreAdminDraft()" style="background: #2196f3; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">Restore Draft</button>
+                    <button onclick="document.getElementById('draftRestorePrompt').style.display='none'; clearAdminDraft();" style="background: #f5f5f5; color: #666; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">Discard</button>
+                </div>
             </div>
             
             <h3 style="color: var(--text-primary); margin-top: 30px; margin-bottom: 20px;">Add New Session</h3>
@@ -1293,6 +1356,7 @@ function renderSessionsList() {
 function closeAdmin() {
     const panel = document.getElementById('adminPanel');
     if (panel) panel.remove();
+    stopAutoSave();
 }
 
 // ============================================================================
@@ -1595,13 +1659,19 @@ async function saveNewSession(event) {
     const saved = await saveSessions();
     
     if (saved) {
+        // Clear draft
+        clearAdminDraft();
+        
         // Reset form
         document.querySelector('.admin-form').reset();
         document.getElementById('exercisesContainer').innerHTML = '';
         document.getElementById('linksContainer').innerHTML = '';
         document.querySelector('.save-session-btn').textContent = 'Save Session to Cloud';
         
+        showToast('Session saved successfully! ✨', 'success');
         showSuccessMessage();
+    } else {
+        showToast('Error saving session. Please try again.', 'error');
     }
 }
 
@@ -1758,8 +1828,206 @@ function showSuccessMessage() {
         if (searchSection) {
             searchSection.style.display = 'block';
         }
-    };
+    }';
     document.body.insertBefore(backdrop, message);
+}
+
+// ============================================================================
+// PHASE 1 FEATURES
+// ============================================================================
+
+// Toast Notifications
+function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+        <span class="toast-icon">${type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ'}</span>
+        <span class="toast-message">${escapeHtml(message)}</span>
+    `;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => toast.classList.add('show'), 10);
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+// Keyboard Shortcuts
+function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        // Ctrl/Cmd + K: Focus search
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            document.getElementById('searchInput')?.focus();
+        }
+        
+        // Escape: Close modals/search
+        if (e.key === 'Escape') {
+            hideSearchResults();
+            const authModal = document.querySelector('.auth-modal');
+            if (authModal) closeAuthModal();
+            const adminPanel = document.getElementById('adminPanel');
+            if (adminPanel) adminPanel.remove();
+        }
+        
+        // Ctrl/Cmd + S: Save in admin (prevent default browser save)
+        if ((e.ctrlKey || e.metaKey) && e.key === 's' && document.getElementById('adminPanel')) {
+            e.preventDefault();
+            const saveBtn = document.querySelector('#adminPanel button[onclick*="saveNewSession"]');
+            if (saveBtn) saveBtn.click();
+        }
+    });
+}
+
+// Recent Searches
+let recentSearches = JSON.parse(localStorage.getItem('recentSearches') || '[]');
+
+function addToRecentSearches(query) {
+    if (!query || query.length < 2) return;
+    
+    // Remove if already exists
+    recentSearches = recentSearches.filter(q => q !== query);
+    
+    // Add to beginning
+    recentSearches.unshift(query);
+    
+    // Keep only last 5
+    recentSearches = recentSearches.slice(0, 5);
+    
+    localStorage.setItem('recentSearches', JSON.stringify(recentSearches));
+}
+
+function showRecentSearches() {
+    if (recentSearches.length === 0) return '';
+    
+    return `
+        <div class="recent-searches">
+            <div class="recent-searches-header">
+                <span>Recent</span>
+                <button onclick="clearRecentSearches()" class="clear-recent">Clear</button>
+            </div>
+            ${recentSearches.map(query => `
+                <div class="recent-search-item" onclick="document.getElementById('searchInput').value='${escapeHtml(query)}'; searchSessions('${escapeHtml(query)}');">
+                    <span>🕐</span> ${escapeHtml(query)}
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+function clearRecentSearches() {
+    recentSearches = [];
+    localStorage.setItem('recentSearches', JSON.stringify([]));
+    hideSearchResults();
+}
+
+// Password Strength Indicator
+function checkPasswordStrength(password) {
+    let strength = 0;
+    const feedback = [];
+    
+    if (password.length >= 8) strength++;
+    else feedback.push('At least 8 characters');
+    
+    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
+    else feedback.push('Upper & lowercase letters');
+    
+    if (/\d/.test(password)) strength++;
+    else feedback.push('At least 1 number');
+    
+    if (/[!@#$%^&*]/.test(password)) strength++;
+    
+    const labels = ['Weak', 'Fair', 'Good', 'Strong'];
+    const colors = ['#e74c3c', '#e67e22', '#f39c12', '#27ae60'];
+    
+    return {
+        strength: Math.min(strength, 3),
+        label: labels[Math.min(strength, 3)],
+        color: colors[Math.min(strength, 3)],
+        feedback: feedback
+    };
+}
+
+function updatePasswordStrength(input, indicatorId) {
+    const indicator = document.getElementById(indicatorId);
+    if (!indicator) return;
+    
+    const password = input.value;
+    if (!password) {
+        indicator.innerHTML = '';
+        return;
+    }
+    
+    const result = checkPasswordStrength(password);
+    indicator.innerHTML = `
+        <div class="password-strength-bar">
+            <div class="password-strength-fill" style="width: ${(result.strength + 1) * 25}%; background: ${result.color};"></div>
+        </div>
+        <div class="password-strength-label" style="color: ${result.color};">${result.label}</div>
+        ${result.feedback.length > 0 ? `<div class="password-strength-tips">${result.feedback.join(' • ')}</div>` : ''}
+    `;
+}
+
+// Auto-Save Drafts (Admin)
+let autoSaveInterval;
+let lastDraftTime = null;
+
+function startAutoSave() {
+    clearInterval(autoSaveInterval);
+    autoSaveInterval = setInterval(saveAdminDraft, 30000); // Every 30 seconds
+}
+
+function stopAutoSave() {
+    clearInterval(autoSaveInterval);
+}
+
+function saveAdminDraft() {
+    const panel = document.getElementById('adminPanel');
+    if (!panel) return;
+    
+    const draft = {
+        date: document.getElementById('sessionDate')?.value || '',
+        notes: document.getElementById('notesText')?.value || '',
+        savedAt: new Date().toISOString()
+    };
+    
+    // Only save if there's content
+    if (draft.date || draft.notes) {
+        localStorage.setItem('adminDraft', JSON.stringify(draft));
+        lastDraftTime = new Date();
+        updateDraftIndicator();
+        console.log('Draft saved at', lastDraftTime.toLocaleTimeString());
+    }
+}
+
+function loadAdminDraft() {
+    const draft = localStorage.getItem('adminDraft');
+    if (!draft) return null;
+    
+    try {
+        return JSON.parse(draft);
+    } catch {
+        return null;
+    }
+}
+
+function clearAdminDraft() {
+    localStorage.removeItem('adminDraft');
+    lastDraftTime = null;
+    updateDraftIndicator();
+}
+
+function updateDraftIndicator() {
+    const indicator = document.getElementById('draftIndicator');
+    if (!indicator) return;
+    
+    if (lastDraftTime) {
+        indicator.textContent = `Draft saved at ${lastDraftTime.toLocaleTimeString()}`;
+        indicator.style.display = 'block';
+    } else {
+        indicator.style.display = 'none';
+    }
 }
 
 // ============================================================================
