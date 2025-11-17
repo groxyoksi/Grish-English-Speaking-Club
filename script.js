@@ -304,6 +304,7 @@ function setupSearch() {
     const searchInput = document.getElementById('searchInput');
     const clearBtn = document.getElementById('clearSearch');
     
+    // Search on input (as user types)
     searchInput.addEventListener('input', (e) => {
         const query = e.target.value.trim();
         if (query.length > 0) {
@@ -315,10 +316,28 @@ function setupSearch() {
         }
     });
     
+    // Also search on Enter key
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            const query = e.target.value.trim();
+            if (query.length >= 2) {
+                searchSessions(query);
+            }
+        }
+    });
+    
     clearBtn.addEventListener('click', () => {
         searchInput.value = '';
         clearBtn.style.display = 'none';
         hideSearchResults();
+    });
+    
+    // Close search results when clicking outside
+    document.addEventListener('click', (e) => {
+        const searchSection = document.querySelector('.search-section');
+        if (searchSection && !searchSection.contains(e.target)) {
+            hideSearchResults();
+        }
     });
 }
 
@@ -328,8 +347,18 @@ function searchSessions(query) {
         return;
     }
     
+    // Check if sessions are loaded
+    if (!sessions || sessions.length === 0) {
+        const container = document.getElementById('searchResults');
+        container.innerHTML = '<div class="no-results">Loading sessions... Please wait.</div>';
+        container.classList.add('active');
+        return;
+    }
+    
     const results = [];
     const lowerQuery = query.toLowerCase();
+    
+    console.log('Searching for:', query, 'in', sessions.length, 'sessions');
     
     sessions.forEach(session => {
         if (session.notes) {
@@ -375,11 +404,19 @@ function searchSessions(query) {
         }
     });
     
+    console.log('Found', results.length, 'results');
     displaySearchResults(results);
 }
 
 function displaySearchResults(results) {
     const container = document.getElementById('searchResults');
+    
+    if (!container) {
+        console.error('Search results container not found!');
+        return;
+    }
+    
+    console.log('Displaying', results.length, 'search results');
     
     if (results.length === 0) {
         container.innerHTML = '<div class="no-results">No results found</div>';
@@ -413,6 +450,7 @@ function displaySearchResults(results) {
     }).join('');
     
     container.classList.add('active');
+    console.log('Search results displayed, active class added');
 }
 
 // Helper function to highlight search term in text
