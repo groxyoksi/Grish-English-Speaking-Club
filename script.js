@@ -10,7 +10,7 @@ let editingSessionId = null;
 let isAdminLoggedIn = false;
 
 // Admin email - CHANGE THIS to your email address!
-const ADMIN_EMAIL = "your-email@gmail.com"; // ⚠️ CHANGE THIS to your admin email!
+const ADMIN_EMAIL = "oksuzian.grigorii@gmail.com"; // ⚠️ CHANGE THIS to your admin email!
 
 // Helper function to check if current user is admin
 function isAdmin() {
