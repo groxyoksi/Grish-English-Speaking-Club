@@ -35,7 +35,23 @@ jobs:
       # Install Playwright browsers
       - name: Install Playwright browsers
         run: npx playwright install chromium
+      # Wait for GitHub Pages to be ready
+      - name: Wait for site to be deployed
+        run: |
+          echo "Waiting for GitHub Pages to be ready..."
+          for i in {1..30}; do
+            if curl -s -o /dev/null -w "%{http_code}" https://groxyoksi.github.io/Grish-English-Speaking-Club/ | grep -q "200"; then
+              echo "Site is live!"
+              sleep 10
+              break
+            fi
+            echo "Attempt $i: Site not ready yet, waiting 10 seconds..."
+            sleep 10
+          done
       
+      # Run tests
+      - name: Run Playwright tests
+        run: npm test
       # Run tests
       - name: Run Playwright tests
         run: npm test
