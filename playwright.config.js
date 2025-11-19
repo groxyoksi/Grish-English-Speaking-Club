@@ -32,7 +32,7 @@ export default defineConfig({
   // Shared settings for all tests
   use: {
     // Base URL for your app - UPDATE THIS!
-    baseURL: 'http://localhost:8000', // Change to your GitHub Pages URL
+    baseURL: 'https://groxyoksi.github.io/Grish-English-Speaking-Club/', // Change to your GitHub Pages URL
     
     // Browser viewport
     viewport: { width: 1280, height: 720 },
