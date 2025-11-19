@@ -9,6 +9,14 @@ let firebaseReady = false;
 let editingSessionId = null;
 let isAdminLoggedIn = false;
 
+// Phase 2: Filter & Sort state
+let currentFilter = 'all'; // 'all', 'completed', 'incomplete'
+let currentSort = 'date-desc'; // 'date-desc', 'date-asc', 'title-asc', 'title-desc'
+
+// Phase 2: Undo Delete state
+let deletedSession = null;
+let deleteTimeout = null;
+
 // Admin email - CHANGE THIS to your email address!
 const ADMIN_EMAIL = "oksuzian.grigorii@gmail.com";
 
@@ -728,10 +736,15 @@ async function loadSessions() {
     try {
         const sessionsRef = window.firebaseRef(window.firebaseDB, 'sessions');
         
-        window.firebaseOnValue(sessionsRef, (snapshot) => {
+        window.firebaseOnValue(sessionsRef, async (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.val();
                 sessions = Object.values(data);
+                
+                // Phase 2: Load user progress for each session
+                if (currentUser) {
+                    await loadUserProgress();
+                }
             } else {
                 sessions = [];
             }
@@ -742,6 +755,74 @@ async function loadSessions() {
     } catch (error) {
         console.error('Error loading sessions:', error);
         displaySessions();
+    }
+}
+
+// Phase 2: Load user progress data
+async function loadUserProgress() {
+    if (!currentUser) return;
+    
+    try {
+        const progressRef = window.firebaseRef(window.firebaseDB, `userProgress/${currentUser.uid}`);
+        
+        window.firebaseOnValue(progressRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const progressData = snapshot.val();
+                
+                // Attach progress data to sessions
+                sessions.forEach(session => {
+                    if (progressData[session.id]) {
+                        session.completedBy = session.completedBy || {};
+                        session.completedBy[currentUser.uid] = progressData[session.id];
+                    } else {
+                        if (session.completedBy) {
+                            delete session.completedBy[currentUser.uid];
+                        }
+                    }
+                });
+            }
+            displaySessions();
+        });
+    } catch (error) {
+        console.error('Error loading user progress:', error);
+    }
+}
+
+// Phase 2: Load specific session progress
+async function loadSessionById(sessionId) {
+    if (!currentUser) return;
+    
+    try {
+        const sessionRef = window.firebaseRef(window.firebaseDB, `sessions/${sessionId}`);
+        const progressRef = window.firebaseRef(window.firebaseDB, `userProgress/${currentUser.uid}/${sessionId}`);
+        
+        // Load session data
+        window.firebaseOnValue(sessionRef, (sessionSnapshot) => {
+            if (sessionSnapshot.exists()) {
+                const sessionData = sessionSnapshot.val();
+                
+                // Load progress data
+                window.firebaseOnValue(progressRef, (progressSnapshot) => {
+                    if (progressSnapshot.exists()) {
+                        sessionData.completedBy = sessionData.completedBy || {};
+                        sessionData.completedBy[currentUser.uid] = progressSnapshot.val();
+                    }
+                    
+                    // Update session in sessions array
+                    const index = sessions.findIndex(s => s.id === sessionId);
+                    if (index !== -1) {
+                        sessions[index] = sessionData;
+                    }
+                    
+                    // Refresh the current view if it's open
+                    if (currentSessionId === sessionId) {
+                        openSession(sessionId);
+                    }
+                });
+            }
+        });
+    } catch (error) {
+        console.error('Error loading session:', error);
     }
 }
 
@@ -777,27 +858,40 @@ function displaySessions() {
     
     document.querySelectorAll('.session-detail').forEach(el => el.remove());
     
-    if (sessions.length === 0) {
+    // Phase 2: Apply filters and sorting
+    const filteredSessions = applyFiltersAndSort();
+    
+    if (filteredSessions.length === 0) {
         container.innerHTML = `
             <div class="empty-state">
                 <div class="empty-icon">📚</div>
-                <h2>No Sessions Yet</h2>
-                <p>Ready to create your first lesson?</p>
-                ${currentUser && currentUser.email === ADMIN_EMAIL ? 
+                <h2>${sessions.length === 0 ? 'No Sessions Yet' : 'No Sessions Found'}</h2>
+                <p>${sessions.length === 0 ? 'Ready to create your first lesson?' : 'Try changing your filter settings'}</p>
+                ${currentUser && currentUser.email === ADMIN_EMAIL && sessions.length === 0 ? 
                     '<button class="empty-action-btn" onclick="document.getElementById(\'adminBtn\').click()">Create First Session</button>' :
-                    '<p style="color: var(--text-light); font-size: 0.9rem;">New sessions will appear here when your teacher adds them.</p>'
+                    sessions.length === 0 ? '<p style="color: var(--text-light); font-size: 0.9rem;">New sessions will appear here when your teacher adds them.</p>' :
+                    ''
                 }
             </div>
         `;
         return;
     }
     
-    container.innerHTML = sessions.map(session => `
-        <div class="session-box" data-session-id="${session.id}">
-            <h2>${formatDate(session.date)}</h2>
-            <p>${session.notes?.length || 0} notes • ${session.exercises?.length || 0} exercises • ${session.links?.length || 0} links</p>
-        </div>
-    `).join('');
+    // Phase 2: Render filter/sort controls if logged in
+    if (currentUser) {
+        renderFilterSortControls();
+    }
+    
+    container.innerHTML = filteredSessions.map(session => {
+        const isCompleted = isSessionCompleted(session);
+        return `
+            <div class="session-box" data-session-id="${session.id}">
+                ${isCompleted ? '<div class="complete-badge"><span class="complete-badge-icon">✓</span> Completed</div>' : ''}
+                <h2>${formatDate(session.date)}</h2>
+                <p>${session.notes?.length || 0} notes • ${session.exercises?.length || 0} exercises • ${session.links?.length || 0} links</p>
+            </div>
+        `;
+    }).join('');
     
     document.querySelectorAll('.session-box').forEach(box => {
         box.addEventListener('click', function() {
@@ -876,6 +970,7 @@ function openSession(sessionId, noteTitle = null) {
 }
 
 function createSessionDetailView(session) {
+    const isCompleted = isSessionCompleted(session);
     const detail = document.createElement('div');
     detail.className = 'session-detail active';
     detail.innerHTML = `
@@ -884,6 +979,12 @@ function createSessionDetailView(session) {
         <div class="session-header">
             <div>
                 <h2>${formatDate(session.date)}</h2>
+                ${currentUser ? `
+                    <button class="mark-complete-btn ${isCompleted ? 'completed' : ''}" 
+                            onclick="toggleSessionComplete('${session.id}')">
+                        ${isCompleted ? '✓ Completed' : '⭘ Mark as Complete'}
+                    </button>
+                ` : ''}
             </div>
             ${currentUser ? `<a href="#" class="favorites-link" onclick="event.preventDefault(); showFavorites();">⭐ My Favorites</a>` : ''}
         </div>
@@ -1321,7 +1422,10 @@ example
                     <button type="button" class="add-item-btn" onclick="addLinkFields()">+ Add Link</button>
                 </div>
                 
-                <button type="submit" class="save-session-btn">Save Session to Cloud</button>
+                <div class="admin-actions">
+                    <button type="button" class="admin-action-btn preview" onclick="previewSession()">👁️ Preview</button>
+                    <button type="submit" class="admin-action-btn duplicate" style="background: var(--accent-dark); color: var(--accent-light); border-color: var(--accent-dark);">💾 Save Session</button>
+                </div>
             </form>
             
             <div class="sessions-list">
@@ -1345,9 +1449,10 @@ function renderSessionsList() {
                 <h4>${formatDate(session.date)}</h4>
                 <p style="color: var(--text-muted);">${session.notes?.length || 0} notes • ${session.exercises?.length || 0} exercises • ${session.links?.length || 0} links</p>
             </div>
-            <div style="display: flex; gap: 12px;">
-                <button class="edit-session-btn" onclick="editSession('${session.id}')">Edit</button>
-                <button class="delete-session-btn" onclick="deleteSession('${session.id}')">Delete</button>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <button class="edit-session-btn" onclick="editSession('${session.id}')">✏️ Edit</button>
+                <button class="edit-session-btn" onclick="duplicateSession('${session.id}')" style="background: #3498db; border-color: #3498db;">📋 Duplicate</button>
+                <button class="delete-session-btn" onclick="deleteSession('${session.id}')">🗑️ Delete</button>
             </div>
         </div>
     `).join('');
@@ -1746,14 +1851,24 @@ function parseNotes(notesText) {
 async function deleteSession(sessionId) {
     if (!confirm('Are you sure you want to delete this session?')) return;
     
+    // Phase 2: Save session for undo feature
+    const session = sessions.find(s => s.id === sessionId);
+    if (!session) return;
+    
+    deletedSession = { ...session };
+    
     const deleted = await deleteSessionFromFirebase(sessionId);
     
     if (deleted) {
         sessions = sessions.filter(s => s.id !== sessionId);
         closeAdmin();
         openAdmin();
+        
+        // Phase 2: Show undo toast
+        showUndoToast(sessionId, session.date);
     } else {
         alert('Error deleting session. Please try again.');
+        deletedSession = null;
     }
 }
 
@@ -2027,6 +2142,311 @@ function updateDraftIndicator() {
         indicator.style.display = 'block';
     } else {
         indicator.style.display = 'none';
+    }
+}
+
+// ============================================================================
+// PHASE 2 FEATURES
+// ============================================================================
+
+// ===== 1. PROGRESS TRACKING =====
+
+async function toggleSessionComplete(sessionId) {
+    if (!currentUser) {
+        showToast('Please log in to track progress', 'error');
+        return;
+    }
+    
+    const session = sessions.find(s => s.id === sessionId);
+    if (!session) return;
+    
+    const userProgressRef = `userProgress/${currentUser.uid}/${sessionId}`;
+    const isCompleted = session.completedBy && session.completedBy[currentUser.uid];
+    
+    try {
+        if (isCompleted) {
+            // Mark as incomplete
+            await window.firebaseUpdate(window.firebaseDB, userProgressRef, null);
+            showToast('Session marked as incomplete', 'info');
+        } else {
+            // Mark as complete
+            await window.firebaseSet(window.firebaseDB, userProgressRef, {
+                completedAt: new Date().toISOString(),
+                userId: currentUser.uid
+            });
+            showToast('Great job! Session completed! 🎉', 'success');
+        }
+        
+        // Reload session data
+        await loadSessionById(sessionId);
+    } catch (error) {
+        console.error('Error updating progress:', error);
+        showToast('Error updating progress', 'error');
+    }
+}
+
+function isSessionCompleted(session) {
+    if (!currentUser || !session.completedBy) return false;
+    return !!session.completedBy[currentUser.uid];
+}
+
+// ===== 2. FILTER & SORT =====
+
+function applyFiltersAndSort() {
+    let filtered = [...sessions];
+    
+    // Apply filter
+    if (currentFilter === 'completed') {
+        filtered = filtered.filter(session => isSessionCompleted(session));
+    } else if (currentFilter === 'incomplete') {
+        filtered = filtered.filter(session => !isSessionCompleted(session));
+    }
+    
+    // Apply sort
+    filtered.sort((a, b) => {
+        switch (currentSort) {
+            case 'date-desc':
+                return new Date(b.date) - new Date(a.date);
+            case 'date-asc':
+                return new Date(a.date) - new Date(b.date);
+            case 'title-asc':
+                return a.date.localeCompare(b.date);
+            case 'title-desc':
+                return b.date.localeCompare(a.date);
+            default:
+                return 0;
+        }
+    });
+    
+    return filtered;
+}
+
+function updateFilterSort() {
+    displaySessions();
+}
+
+function renderFilterSortControls() {
+    const searchSection = document.querySelector('.search-section');
+    if (!searchSection) return;
+    
+    // Check if controls already exist
+    let controlsSection = document.querySelector('.controls-section');
+    if (!controlsSection) {
+        controlsSection = document.createElement('div');
+        controlsSection.className = 'controls-section';
+        searchSection.appendChild(controlsSection);
+    }
+    
+    controlsSection.innerHTML = `
+        <div class="filter-group">
+            <label>📊 Filter:</label>
+            <select class="filter-select" onchange="handleFilterChange(this.value)">
+                <option value="all" ${currentFilter === 'all' ? 'selected' : ''}>All Sessions</option>
+                <option value="completed" ${currentFilter === 'completed' ? 'selected' : ''}>✓ Completed</option>
+                <option value="incomplete" ${currentFilter === 'incomplete' ? 'selected' : ''}>⭘ Incomplete</option>
+            </select>
+        </div>
+        
+        <div class="sort-group">
+            <label>🔄 Sort:</label>
+            <select class="sort-select" onchange="handleSortChange(this.value)">
+                <option value="date-desc" ${currentSort === 'date-desc' ? 'selected' : ''}>Date (Newest)</option>
+                <option value="date-asc" ${currentSort === 'date-asc' ? 'selected' : ''}>Date (Oldest)</option>
+            </select>
+        </div>
+    `;
+}
+
+function handleFilterChange(value) {
+    currentFilter = value;
+    updateFilterSort();
+    showToast(`Filter: ${value === 'all' ? 'All Sessions' : value === 'completed' ? 'Completed' : 'Incomplete'}`, 'info');
+}
+
+function handleSortChange(value) {
+    currentSort = value;
+    updateFilterSort();
+    const sortLabels = {
+        'date-desc': 'Newest First',
+        'date-asc': 'Oldest First'
+    };
+    showToast(`Sorted: ${sortLabels[value]}`, 'info');
+}
+
+// ===== 3. DUPLICATE SESSION (Admin) =====
+
+async function duplicateSession(sessionId) {
+    const session = sessions.find(s => s.id === sessionId);
+    if (!session) {
+        showToast('Session not found', 'error');
+        return;
+    }
+    
+    const newSession = {
+        id: generateId(),
+        date: new Date().toISOString().split('T')[0], // Today's date
+        notes: session.notes,
+        comments: {},
+        createdAt: new Date().toISOString()
+    };
+    
+    try {
+        await window.firebaseSet(window.firebaseDB, `sessions/${newSession.id}`, newSession);
+        showToast('Session duplicated successfully! 📋', 'success');
+        await loadSessions();
+        closeAdminPanel();
+    } catch (error) {
+        console.error('Error duplicating session:', error);
+        showToast('Error duplicating session', 'error');
+    }
+}
+
+// ===== 4. SESSION PREVIEW (Admin) =====
+
+function previewSession() {
+    const dateInput = document.getElementById('sessionDate');
+    const notesInput = document.getElementById('notesText');
+    
+    if (!dateInput || !notesInput) return;
+    
+    const date = dateInput.value;
+    const notesText = notesInput.value.trim();
+    
+    if (!date) {
+        showToast('Please enter a date first', 'error');
+        return;
+    }
+    
+    // Parse notes
+    const notes = notesText
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line)
+        .map(line => {
+            const parts = line.split('-').map(p => p.trim());
+            return {
+                word: parts[0] || '',
+                definition: parts.slice(1).join(' - ') || ''
+            };
+        });
+    
+    showPreviewModal(date, notes);
+}
+
+function showPreviewModal(date, notes) {
+    const modal = document.createElement('div');
+    modal.className = 'preview-modal';
+    modal.innerHTML = `
+        <div class="preview-content">
+            <div class="preview-header">
+                <div class="preview-title">
+                    <span>👁️ Preview Mode</span>
+                    <span class="preview-badge">NOT SAVED</span>
+                </div>
+                <button class="preview-close" onclick="closePreviewModal()">✕</button>
+            </div>
+            <div class="preview-body">
+                <div class="session-header">
+                    <h2>Session: ${escapeHtml(date)}</h2>
+                    <p class="word-count">${notes.length} words</p>
+                </div>
+                
+                <div class="content-box">
+                    ${notes.length === 0 ? `
+                        <div class="empty-state">
+                            <div class="empty-icon">📝</div>
+                            <h3>No vocabulary yet</h3>
+                            <p>Add some words to see them here</p>
+                        </div>
+                    ` : notes.map((note, index) => `
+                        <div class="note-item">
+                            <div class="note-content">
+                                <span class="note-number">${index + 1}</span>
+                                <div>
+                                    <div class="note-word">${escapeHtml(note.word)}</div>
+                                    <div class="note-def">${escapeHtml(note.definition)}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    setTimeout(() => modal.classList.add('active'), 10);
+}
+
+function closePreviewModal() {
+    const modal = document.querySelector('.preview-modal');
+    if (modal) {
+        modal.classList.remove('active');
+        setTimeout(() => modal.remove(), 300);
+    }
+}
+
+// ===== 5. UNDO DELETE =====
+
+function showUndoToast(sessionId, sessionDate) {
+    const toast = document.createElement('div');
+    toast.className = 'toast toast-undo';
+    toast.id = 'undoToast';
+    toast.innerHTML = `
+        <span class="toast-icon">⚠️</span>
+        <div style="flex: 1;">
+            <span class="toast-message">Session "${escapeHtml(sessionDate)}" deleted</span>
+            <div class="toast-actions">
+                <button class="toast-undo-btn" onclick="undoDelete()">↶ Undo</button>
+                <button class="toast-dismiss-btn" onclick="dismissUndo()">Dismiss</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => toast.classList.add('show'), 10);
+    
+    // Auto-remove after 10 seconds
+    deleteTimeout = setTimeout(() => {
+        permanentlyDelete();
+    }, 10000);
+}
+
+async function undoDelete() {
+    if (!deletedSession) return;
+    
+    clearTimeout(deleteTimeout);
+    
+    try {
+        // Restore the session
+        await window.firebaseSet(window.firebaseDB, `sessions/${deletedSession.id}`, deletedSession);
+        showToast('Session restored successfully! 🎉', 'success');
+        await loadSessions();
+        deletedSession = null;
+        
+        // Remove undo toast
+        const undoToast = document.getElementById('undoToast');
+        if (undoToast) {
+            undoToast.classList.remove('show');
+            setTimeout(() => undoToast.remove(), 300);
+        }
+    } catch (error) {
+        console.error('Error restoring session:', error);
+        showToast('Error restoring session', 'error');
+    }
+}
+
+function dismissUndo() {
+    clearTimeout(deleteTimeout);
+    permanentlyDelete();
+}
+
+function permanentlyDelete() {
+    deletedSession = null;
+    const undoToast = document.getElementById('undoToast');
+    if (undoToast) {
+        undoToast.classList.remove('show');
+        setTimeout(() => undoToast.remove(), 300);
     }
 }
 
