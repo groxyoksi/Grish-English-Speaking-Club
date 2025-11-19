@@ -2160,17 +2160,18 @@ async function toggleSessionComplete(sessionId) {
     const session = sessions.find(s => s.id === sessionId);
     if (!session) return;
     
-    const userProgressRef = `userProgress/${currentUser.uid}/${sessionId}`;
+    const userProgressPath = `userProgress/${currentUser.uid}/${sessionId}`;
+    const userProgressRef = window.firebaseRef(window.firebaseDB, userProgressPath);
     const isCompleted = session.completedBy && session.completedBy[currentUser.uid];
     
     try {
         if (isCompleted) {
-            // Mark as incomplete
-            await window.firebaseUpdate(window.firebaseDB, userProgressRef, null);
+            // Mark as incomplete - remove the progress entry
+            await window.firebaseRemove(userProgressRef);
             showToast('Session marked as incomplete', 'info');
         } else {
-            // Mark as complete
-            await window.firebaseSet(window.firebaseDB, userProgressRef, {
+            // Mark as complete - set progress data
+            await window.firebaseSet(userProgressRef, {
                 completedAt: new Date().toISOString(),
                 userId: currentUser.uid
             });
