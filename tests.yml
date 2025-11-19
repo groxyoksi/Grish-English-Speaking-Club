@@ -1,0 +1,79 @@
+name: Phase 2 Tests
+
+on:
+  # Run tests on push to main
+  push:
+    branches: [ main ]
+  
+  # Run tests on pull requests
+  pull_request:
+    branches: [ main ]
+  
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Run Phase 2 Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      # Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      # Install dependencies
+      - name: Install dependencies
+        run: npm ci
+      
+      # Install Playwright browsers
+      - name: Install Playwright browsers
+        run: npx playwright install chromium
+      
+      # Run tests
+      - name: Run Playwright tests
+        run: npm test
+        env:
+          # Add your test credentials as GitHub Secrets
+          STUDENT_EMAIL: ${{ secrets.STUDENT_EMAIL }}
+          STUDENT_PASSWORD: ${{ secrets.STUDENT_PASSWORD }}
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+      
+      # Upload test results
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
+      
+      # Upload screenshots on failure
+      - name: Upload failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-failures
+          path: test-results/
+          retention-days: 7
+      
+      # Comment PR with results (optional)
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '✅ Phase 2 tests completed! Check the Actions tab for details.'
+            })

@@ -1,0 +1,20 @@
+{
+  "name": "grish-english-tests",
+  "version": "2.0.1",
+  "description": "Automated tests for Grish English Speaking Club",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:report": "playwright show-report",
+    "install:playwright": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0"
+  },
+  "keywords": ["testing", "playwright", "e2e"],
+  "author": "Grish English Club",
+  "license": "MIT"
+}
